@@ -1,0 +1,14 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["tsconfig.base.json", "oxlint.config.ts", "oxfmt.config.ts"],
+  "tasks": {
+    "lint": {},
+    "fmt": {},
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    "test": {
+      "dependsOn": ["typecheck"]
+    }
+  }
+}
