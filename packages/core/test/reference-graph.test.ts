@@ -1,7 +1,12 @@
-import { Effect, HashSet, Layer, Schema } from "effect"
+import { Effect, HashSet, Layer, Option, Schema } from "effect"
 import { describe, expect, it } from "@effect/vitest"
 import { BlobStore, type BlobStoreShape } from "../src/blob-store.ts"
-import { ReferenceGraph } from "../src/reference-graph.ts"
+import {
+  ReferenceGraph,
+  resolveLinkTarget,
+  rewriteDocLinks,
+  rewriteImageRefs,
+} from "../src/reference-graph.ts"
 import { Core, type CoreProvides } from "../src/core.ts"
 import { MemoryBlobStore } from "./blob-store.memory.ts"
 import { utf8 } from "./bytes.ts"
@@ -16,6 +21,59 @@ const withGraph = <A, E>(
   effect.pipe(Effect.provide(Core.layer(Layer.succeed(BlobStore, store), CatalogConfig)))
 
 describe("reference graph", () => {
+  it("resolveLinkTarget resolves catalog paths, folder-relative, region, and asset targets", () => {
+    const doc = (target: string) => resolveLinkTarget("docs/guides/authoring", target)
+    expect(doc("guides/content-model")).toEqual(
+      Option.some({ kind: "doc", path: "guides/content-model" }),
+    )
+    expect(doc("./content-model")).toEqual(
+      Option.some({ kind: "doc", path: "guides/content-model" }),
+    )
+    expect(doc("../start")).toEqual(Option.some({ kind: "doc", path: "start" }))
+    expect(doc("docs/start")).toEqual(Option.some({ kind: "doc", path: "start" }))
+    expect(doc("/guides/content-model")).toEqual(
+      Option.some({ kind: "doc", path: "guides/content-model" }),
+    )
+    expect(doc("guides/content-model#intro")).toEqual(
+      Option.some({ kind: "doc", path: "guides/content-model", fragment: "intro" }),
+    )
+    expect(doc("assets/logo.txt")).toEqual(Option.some({ kind: "asset", id: "logo.txt" }))
+    expect(doc("https://example.com/x")).toEqual(Option.none())
+    expect(doc("mailto:a@b.dev")).toEqual(Option.none())
+    expect(doc("#local-anchor")).toEqual(Option.none())
+    expect(doc("../../escape")).toEqual(Option.none())
+  })
+
+  it("rewriteDocLinks rewrites links but never image markup, externals, or prose", () => {
+    const body =
+      "![img](assets/a.png)\n\n[Guide](guides/content-model)\n\n[Site](https://example.com) and [More](./sub)\n\nprose mentions guides/content-model stay\n"
+    const out = rewriteDocLinks(body, (target) =>
+      target === "guides/content-model"
+        ? "http://o/documents/guides/content-model"
+        : target === "./sub"
+          ? "http://o/documents/guides/sub"
+          : target === "assets/a.png"
+            ? "http://o/assets/a.png"
+            : target,
+    )
+    expect(out).toBe(
+      "![img](assets/a.png)\n\n[Guide](http://o/documents/guides/content-model)\n\n[Site](https://example.com) and [More](http://o/documents/guides/sub)\n\nprose mentions guides/content-model stay\n",
+    )
+  })
+
+  it("rewriteImageRefs rewrites only image srcs, preserving alt, titles, and prose", () => {
+    const body = `Before\n\n![logo](assets/a.png "wide")\n\n![x](pic.png)\n\nsee assets/a.png in prose\n`
+    const out = rewriteImageRefs(body, (src) =>
+      src === "assets/a.png"
+        ? "https://cdn.example/assets/a.png"
+        : src === "pic.png"
+          ? "https://cdn.example/guides/pic.png"
+          : src,
+    )
+    expect(out).toBe(
+      `Before\n\n![logo](https://cdn.example/assets/a.png "wide")\n\n![x](https://cdn.example/guides/pic.png)\n\nsee assets/a.png in prose\n`,
+    )
+  })
   it.effect("classifies every image reference as present, dangling, or wrong-typed", () =>
     withGraph(
       MemoryBlobStore.make(),
@@ -32,9 +90,14 @@ describe("reference graph", () => {
         const graph = yield* ReferenceGraph
         const refs = yield* graph.documentReferences("docs/post.md")
         expect(Array.from(refs)).toEqual([
-          { assetKey: "assets/a.png", status: "present", sourceLine: 1 },
-          { assetKey: "assets/missing.png", status: "dangling", sourceLine: 2 },
-          { assetKey: "assets/b.txt", status: "wrong-typed", sourceLine: 3 },
+          { src: "assets/a.png", assetKey: "assets/a.png", status: "present", sourceLine: 1 },
+          {
+            src: "assets/missing.png",
+            assetKey: "assets/missing.png",
+            status: "dangling",
+            sourceLine: 2,
+          },
+          { src: "assets/b.txt", assetKey: "assets/b.txt", status: "wrong-typed", sourceLine: 3 },
         ])
       }),
     ),
@@ -69,7 +132,7 @@ describe("reference graph", () => {
         expect(verdict.status).toBe("refused")
         if (verdict.status === "refused") {
           expect(Array.from(verdict.broken)).toEqual([
-            { assetKey: "assets/to/a.png", status: "dangling", sourceLine: 1 },
+            { src: "a.png", assetKey: "assets/to/a.png", status: "dangling", sourceLine: 1 },
           ])
         }
       }),

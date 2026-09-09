@@ -1,5 +1,11 @@
 import { Chunk, Context, Effect, Option } from "effect"
-import { BlobStore, type BlobObject, type BlobStoreShape } from "./blob-store.ts"
+import {
+  BlobStore,
+  type BlobMeta,
+  type BlobObject,
+  type BlobStoreShape,
+  type PutMeta,
+} from "./blob-store.ts"
 import { Catalog, type DocumentListing } from "./catalog.ts"
 import { validateContent } from "./codec.ts"
 import { CatalogRoot, type CatalogRootConfig } from "./config.ts"
@@ -75,6 +81,7 @@ export interface DocumentStoreShape {
   storeAsset(
     id: string,
     bytes: Uint8Array,
+    opts?: { ifCurrent?: string; contentType?: string },
   ): Effect.Effect<string, Error_.PreconditionFailed | Error_.InvalidArgument, DocumentStoreDeps>
   getAsset(
     id: string,
@@ -277,14 +284,40 @@ const deleteDocument = Effect.fn("document-store.deleteDocument")(function* (
 const storeAsset = Effect.fn("document-store.storeAsset")(function* (
   id: string,
   bytes: Uint8Array,
+  opts?: { ifCurrent?: string; contentType?: string },
 ): Effect.fn.Return<string, Error_.PreconditionFailed | Error_.InvalidArgument, DocumentStoreDeps> {
   const store = yield* BlobStore
   const naming = yield* Naming
   const events = yield* ChangeEvents
   const key = yield* naming.encodeAssetKey(id)
-  const meta = yield* BlobStore.put(store)(key, bytes, { ifAbsent: true })
-  yield* events.publish({ kind: "asset", operation: "store", keys: [key], version: meta.version })
-  return meta.version
+  const meta: PutMeta = opts?.contentType === undefined ? {} : { contentType: opts.contentType }
+  const expected = opts?.ifCurrent
+  let blobMeta: BlobMeta
+  if (expected === undefined) {
+    // Create-only (If-None-Match): store when absent, refuse when present.
+    blobMeta = yield* BlobStore.put(store)(key, bytes, { ifAbsent: true }, meta)
+  } else {
+    // Conditional update (If-Match): the caller's version must be current.
+    const current = yield* safeGet(store, key)
+    if (Option.isNone(current)) {
+      return yield* new Error_.PreconditionFailed({
+        key,
+        expected: Option.some(expected),
+        actual: Option.none(),
+      })
+    }
+    if (expected === current.value.version && bytesEqual(current.value.body, bytes)) {
+      return current.value.version // byte-identical no-op: no rewrite, no version bump (D3)
+    }
+    blobMeta = yield* BlobStore.put(store)(key, bytes, { ifCurrent: expected }, meta)
+  }
+  yield* events.publish({
+    kind: "asset",
+    operation: "store",
+    keys: [key],
+    version: blobMeta.version,
+  })
+  return blobMeta.version
 })
 
 const getAsset = Effect.fn("document-store.getAsset")(function* (

@@ -6,6 +6,7 @@ import {
   type BlobStoreShape,
   type GetCondition,
   type PutCondition,
+  type PutMeta,
 } from "../src/blob-store.ts"
 import * as Error_ from "../src/error.ts"
 
@@ -56,7 +57,7 @@ export class MemoryBlobStore {
         key: string,
         body: Uint8Array,
         cond?: PutCondition,
-        meta?: BlobMeta,
+        meta?: PutMeta,
       ): Effect.fn.Return<BlobMeta, Error_.PreconditionFailed> {
         const existing = HashMap.get(state, key)
         if (cond?.ifAbsent === true && Option.isSome(existing)) {
@@ -80,8 +81,9 @@ export class MemoryBlobStore {
         const version = String(counter)
         const stored: BlobMeta = {
           version,
-          size: meta?.size ?? body.length,
-          contentType: meta?.contentType ?? Option.none(),
+          size: body.length,
+          contentType:
+            meta?.contentType === undefined ? Option.none() : Option.some(meta.contentType),
         }
         state = HashMap.set(state, key, { body, version, meta: stored })
         return stored

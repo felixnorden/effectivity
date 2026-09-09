@@ -275,4 +275,40 @@ describe("document store", () => {
         }),
       ),
   )
+
+  it.effect(
+    "storeAsset create-only by default; conditional update accepts current, rejects stale",
+    () =>
+      withStore(
+        MemoryBlobStore.make(),
+        Effect.gen(function* () {
+          const store = yield* DocumentStore
+          const created = yield* store.storeAsset("logo.txt", utf8("v1"))
+          expect(typeof created).toBe("string")
+          // create-only refuses an existing key
+          expect(yield* failureTag(store.storeAsset("logo.txt", utf8("v2")))).toBe(
+            "PreconditionFailed",
+          )
+          // stale or absent If-Match refuses
+          expect(
+            yield* failureTag(store.storeAsset("logo.txt", utf8("v2"), { ifCurrent: "nope" })),
+          ).toBe("PreconditionFailed")
+          // current If-Match rewrites and bumps the version
+          const updated = yield* store.storeAsset("logo.txt", utf8("v2"), { ifCurrent: created })
+          expect(updated).not.toBe(created)
+          const read = yield* store.getAsset("logo.txt")
+          if (Option.isSome(read)) {
+            expect(Array.from(read.value.bytes)).toEqual(Array.from(utf8("v2")))
+            expect(read.value.version).toBe(updated)
+          }
+          // content-type opt is retained in blob metadata
+          const blob = yield* BlobStore
+          yield* store.storeAsset("meta.txt", utf8("m"), { contentType: "text/plain" })
+          const meta = yield* BlobStore.head(blob)("assets/meta.txt")
+          if (Option.isSome(meta)) {
+            expect(meta.value.contentType).toEqual(Option.some("text/plain"))
+          }
+        }),
+      ),
+  )
 })

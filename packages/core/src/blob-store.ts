@@ -23,6 +23,11 @@ export const BlobMeta = Schema.Struct({
 })
 export type BlobMeta = typeof BlobMeta.Type
 
+/** Write-side metadata accepted by `put` — only the content type is retained. */
+export interface PutMeta {
+  readonly contentType?: string
+}
+
 export interface BlobObject {
   readonly key: string
   readonly version: Version
@@ -54,7 +59,7 @@ export interface BlobStoreShape {
     key: string,
     body: Uint8Array,
     cond?: PutCondition,
-    meta?: BlobMeta,
+    meta?: PutMeta,
   ): Effect.Effect<BlobMeta, Error_.PreconditionFailed>
   del(key: string, cond?: PutCondition): Effect.Effect<boolean, Error_.PreconditionFailed>
   list(prefix: string): Effect.Effect<Chunk.Chunk<string>, never>

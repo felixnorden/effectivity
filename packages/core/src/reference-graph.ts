@@ -18,6 +18,8 @@ import { ASSET_REGION, DOC_REGION, encodeAssetKey } from "./naming.ts"
 export type ReferenceStatus = "present" | "dangling" | "wrong-typed"
 
 export interface ResolvedReference {
+  /** The author-written `src` exactly as it appears in the markdown. */
+  readonly src: string
   readonly assetKey: string
   readonly status: ReferenceStatus
   readonly sourceLine?: number
@@ -63,6 +65,84 @@ export interface ReferenceGraphShape {
  * no remark/unified stack). Matches `![alt](src)` and `![alt](src "title")`.
  */
 const IMAGE_REF = /!\[[^\]]*\]\(\s*([^)\s]+)(?:\s+"[^"]*")?\s*\)/g
+
+/**
+ * Substitute variant of {@link IMAGE_REF} with capture groups for the full
+ * image markup; keep both patterns in sync (same tokenization).
+ */
+const IMAGE_REWRITE = /(!\[[^\]]*\]\(\s*)([^)\s]+)((?:\s+"[^"]*")?\s*\))/g
+
+/**
+ * Rewrite every image-reference `src` in a markdown body through a
+ * caller-supplied mapping, preserving alt text, titles, and all other text
+ * byte-identically. Non-image occurrences are untouched.
+ */
+export const rewriteImageRefs = (body: string, rewrite: (src: string) => string): string =>
+  body.replace(
+    IMAGE_REWRITE,
+    (_full, pre: string, src: string, post: string) => `${pre}${rewrite(src)}${post}`,
+  )
+
+/**
+ * Link-target rewrite regex, mirroring the image patterns. The leading
+ * (^|[^!]) guard keeps image markup `![alt](src)` out: a link match whose
+ * `[` is preceded by `!` is part of an image and is skipped.
+ */
+const LINK_REWRITE = /(^|[^!])(\[[^\]]*\]\(\s*)([^)\s]+)((?:\s+"[^"]*")?\s*\))/gm
+
+/**
+ * Rewrite every markdown link `[text](target)` through a caller-supplied
+ * mapping, preserving link text, titles, and all other text byte-identically.
+ * Image markup (`![alt](src)`) is never matched. Targets the rewrite decides
+ * to keep unchanged are returned as-is by returning the input target.
+ */
+export const rewriteDocLinks = (body: string, rewrite: (target: string) => string): string =>
+  body.replace(
+    LINK_REWRITE,
+    (_full, prefix: string, pre: string, target: string, post: string) =>
+      `${prefix}${pre}${rewrite(target)}${post}`,
+  )
+
+/** A resolved markdown link target: either a catalog document or an asset. */
+export type ResolvedLink =
+  | { readonly kind: "doc"; readonly path: string; readonly fragment?: string }
+  | { readonly kind: "asset"; readonly id: string }
+
+/**
+ * Resolve a markdown link `target` against the source document key (catalog
+ * convention): plain targets are catalog paths, `./`/`../` resolve against
+ * the document's own folder, `docs/`/`/`-prefixed forms address the catalog
+ * root explicitly, and `assets/...` targets resolve to assets. External,
+ * anchor, and empty targets resolve to none (left as written).
+ */
+export const resolveLinkTarget = (docKey: string, target: string): Option.Option<ResolvedLink> => {
+  if (target === "" || /^(https?:|mailto:|tel:|data:|#|\?)/i.test(target)) {
+    return Option.none()
+  }
+  if (target.startsWith("assets/")) {
+    return Option.some({ kind: "asset", id: target.slice("assets/".length) })
+  }
+  const [pathPart, fragment] = target.split("#")
+  let path = pathPart ?? ""
+  if (path.startsWith("docs/")) {
+    path = path.slice("docs/".length)
+  } else if (path.startsWith("/")) {
+    path = path.slice(1)
+  } else if (path.startsWith("./") || path.startsWith("../")) {
+    const relDoc = docKey.startsWith(DOC_REGION) ? docKey.slice(DOC_REGION.length) : docKey
+    const segments = relDoc.split("/")
+    segments.pop() // drop the filename; the remainder is the document's folder
+    const parent = segments.join("/")
+    const normalized = normalizeRelative(parent === "" ? path : `${parent}/${path}`)
+    if (Option.isNone(normalized)) {
+      return Option.none()
+    }
+    path = normalized.value
+  }
+  return fragment === undefined
+    ? Option.some({ kind: "doc", path })
+    : Option.some({ kind: "doc", path, fragment })
+}
 
 interface DiscoveredRef {
   readonly src: string
@@ -183,7 +263,7 @@ const documentReferences = Effect.fn("reference-graph.documentReferences")(funct
         Option.isSome(asset) && (yield* classifyContent(asset.value.body, config.frontmatter))
       status = parsesAsDocument ? "wrong-typed" : "present"
     }
-    out.push({ assetKey: key.value, status, sourceLine: ref.line })
+    out.push({ src: ref.src, assetKey: key.value, status, sourceLine: ref.line })
   }
   return Chunk.fromIterable(out)
 })
@@ -250,7 +330,7 @@ const wouldMoveBreakReferences = Effect.fn("reference-graph.wouldMoveBreakRefere
     if (idAtSource.value !== idAtDestination.value) {
       const key = yield* safeEncodeAssetKey(idAtDestination.value)
       if (Option.isSome(key)) {
-        broken.push({ assetKey: key.value, status: "dangling", sourceLine: ref.line })
+        broken.push({ src: ref.src, assetKey: key.value, status: "dangling", sourceLine: ref.line })
       }
     }
   }
