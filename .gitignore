@@ -17,10 +17,15 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # dotenv environment variable files
 .env
+.dev.vars
 .env.development.local
 .env.test.local
 .env.production.local
 .env.local
+
+# @effectivity/cli generated state + scratch
+cms.state.json
+.cms/
 
 # caches
 .eslintcache
@@ -40,3 +45,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # turbo
 .turbo
+
+# wrangler local state
+**/.wrangler/

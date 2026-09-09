@@ -12,6 +12,7 @@ export default defineConfig({
   ignorePatterns: [
     "**/node_modules/**",
     "**/dist/**",
-    "**/coverage/**"
+    "**/coverage/**",
+    "**/worker-configuration.d.ts"
   ]
 })
