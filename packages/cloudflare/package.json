@@ -1,0 +1,36 @@
+{
+  "name": "@effectivity/cloudflare",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "oxlint",
+    "fmt": "oxfmt",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepare": "effect-tsgo patch --typescript --oxlint",
+    "seed": "bash ./scripts/seed.sh",
+    "cms": "bun ../cli/src/cli.ts"
+  },
+  "dependencies": {
+    "@effectivity/api": "workspace:*",
+    "@effectivity/auth": "workspace:*",
+    "@effectivity/core": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
+    "@effect/tsgo": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@effectivity/cli": "workspace:*",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
+  }
+}
