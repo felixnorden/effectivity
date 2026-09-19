@@ -12,8 +12,13 @@ import { Context, Effect, Layer, Option, Scope } from "effect"
 import type { Engine } from "./engine.ts"
 import { type AnyPluginRegistration, PluginError } from "./plugin.ts"
 
-const names = (registrations: ReadonlyArray<AnyPluginRegistration>): string =>
-  registrations.length === 0 ? "(none)" : registrations.map((registration) => registration.name).join(", ")
+export const missingCapability = (
+  capabilityName: string,
+  registrations: ReadonlyArray<AnyPluginRegistration>,
+): string =>
+  `no registered plugin provides the "${capabilityName}" capability (registered plugins: ${
+    registrations.length === 0 ? "(none)" : registrations.map((registration) => registration.name).join(", ")
+  })`
 
 const attributeFailure =
   (pluginName: string) =>
@@ -51,7 +56,7 @@ export const dispatch = Effect.fn("dispatch")(function* <Identifier, Shape, A>(
   }
   if (!provided) {
     return yield* new PluginError({
-      message: `no registered plugin provides the "${capabilityName}" capability (registered plugins: ${names(engine.registrations)})`,
+      message: missingCapability(capabilityName, engine.registrations),
     })
   }
   return undefined as A
