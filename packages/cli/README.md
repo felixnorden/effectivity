@@ -122,6 +122,10 @@ export const myPlugin = (): PluginRegistration<Sync> => ({
 })
 ```
 
+A plugin package that also exports a Worker runtime should import this contract
+from `@effectivity/cli/plugin`, not the package root: the root re-exports the
+config loader (and esbuild), which must not enter the Worker bundle.
+
 - **Capabilities** are typed service tags: `Sync`, `Dev`, `Build`, `Preview`,
   `Seed`. Each returns `Effect<void, PluginError>`; `Dev` takes `{ port }` and
   `Seed` takes `{ url }`.

@@ -12,6 +12,8 @@ import { Context, Effect, Layer, Option, Scope } from "effect"
 import type { Engine } from "./engine.ts"
 import { type AnyPluginRegistration, PluginError } from "./plugin.ts"
 
+/** The engine's error message when no registration provides a dispatched
+ * capability: it names the capability and lists the registered plugins. */
 export const missingCapability = (
   capabilityName: string,
   registrations: ReadonlyArray<AnyPluginRegistration>,

@@ -134,10 +134,10 @@ describe("init command", () => {
 })
 
 describe("consumer config loading", () => {
-  it("the real packages/cloudflare effectivity.config.ts loads via loadRawConfig", async () => {
+  it("the real packages/examples effectivity.config.ts loads via loadRawConfig", async () => {
     const configPath = join(
       fileURLToPath(new URL("../..", import.meta.url)),
-      "cloudflare",
+      "examples",
       "effectivity.config.ts",
     )
     const loaded = await loadRawConfig(configPath)

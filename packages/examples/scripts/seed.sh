@@ -34,7 +34,7 @@ for _ in $(seq 1 40); do
 done
 if ! curl -s -o /dev/null -m 3 "$CMS_URL/openapi.json"; then
   echo "no server at $CMS_URL — start one first:" >&2
-  echo "  cd packages/cloudflare && bun x wrangler dev --port 8788" >&2
+  echo "  cd packages/examples && bun run cms dev" >&2
   exit 1
 fi
 

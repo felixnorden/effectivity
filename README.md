@@ -4,8 +4,27 @@ Bun workspace monorepo with Turbo.
 
 ## Layout
 
-- `packages/*` — workspace packages (declared via `workspaces` in the root `package.json`)
-- `packages/core` — `@effectivity/core`, the core Effect package
+`packages/*` is the workspace glob (declared in the root `package.json`):
+
+- `packages/core` — `@effectivity/core`: the runtime-agnostic Effect library for the markdown CMS (documents, assets, catalog, reference graph). See [packages/core/README.md](packages/core/README.md).
+- `packages/api` — `@effectivity/api`: the runtime-agnostic HTTP surface (HttpApi app, conditional writes, auth gate). See [packages/api/README.md](packages/api/README.md).
+- `packages/auth` — `@effectivity/auth`: the Better Auth identity core behind the api write gate. See [packages/auth/README.md](packages/auth/README.md).
+- `packages/cli` — `@effectivity/cli`: the Effect-native command engine that loads `effectivity.config.ts` and dispatches platform capabilities. See [packages/cli/README.md](packages/cli/README.md).
+- `packages/cloudflare` — `@effectivity/cloudflare`: the Cloudflare Workers runtime library (plugin, R2 adapter, composition). See [packages/cloudflare/README.md](packages/cloudflare/README.md).
+- `packages/examples` — `@effectivity/examples`: the reference runnable instance. See [packages/examples/README.md](packages/examples/README.md).
+
+## How it fits together
+
+- An instance owns `effectivity.config.ts` and a Worker entry. The config
+  registers `cloudflarePlugin`.
+- `@effectivity/cli` loads the config and dispatches the platform
+  capabilities (`sync`, `dev`, `build`, `preview`, `seed`) to the registered
+  plugins, in order.
+- `@effectivity/cloudflare` owns all Cloudflare orchestration. `sync` writes
+  `wrangler.jsonc` and `src/runtime.generated.ts`; the runtime serves
+  `@effectivity/api` over the R2 byte adapter and the `@effectivity/auth`
+  identity core.
+- `@effectivity/core` is the domain library those layers build on.
 
 ## Catalogs
 

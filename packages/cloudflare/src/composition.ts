@@ -5,14 +5,15 @@
  *
  * The identity instance and app handler are built only after the boot
  * (migrations + seed) so Better Auth's schema validation never observes an
- * un-migrated database. The composition is pure construction over `env`; the
- * fetch entry in `index.ts` memoizes one instance per isolate.
+ * un-migrated database. The composition is pure construction over `env` and
+ * the caller-provided `settings`; `makeWorker` memoizes one instance per
+ * isolate.
  */
 import { Effect, Layer, Schema } from "effect"
 import { Etag, HttpPlatform, HttpRouter, HttpServerResponse } from "effect/unstable/http"
 import type { CatalogRootConfig } from "@effectivity/core"
 import { App } from "@effectivity/api"
-import { settings } from "./runtime.generated.ts"
+import type { RuntimeSettings } from "./artifacts.ts"
 import {
   authServiceLayer,
   getMigrations,
@@ -44,6 +45,9 @@ const HttpPlatformWeb = Layer.succeed(
   }),
 )
 
+/** The Worker bindings and environment overlays the runtime reads. Only
+ * `BUCKET` and `DB` are required; the `AUTH_*` fields overlay the baked
+ * settings (production: wrangler secrets). */
 export interface WorkerEnv {
   readonly BUCKET: R2Bucket
   readonly DB: D1Database
@@ -57,7 +61,12 @@ export interface WorkerEnv {
   readonly AUTH_ADMIN_PASSWORD?: string
 }
 
-export const createComposition = (env: WorkerEnv) => {
+/** Build the composed Worker for one environment from one instance's baked
+ * settings: `/auth/*` goes to Better Auth, everything else through the api app
+ * over the R2 byte adapter and the D1-backed identity core. Migrations and the
+ * admin seed run before the first request is served; `makeWorker` memoizes the
+ * result per isolate. */
+export const createComposition = (env: WorkerEnv, settings: RuntimeSettings) => {
   const authConfig = (): IdentityConfig => ({
     baseURL: env.AUTH_URL ?? settings.auth.url,
     secret: env.AUTH_SECRET ?? settings.auth.secret,

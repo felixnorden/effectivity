@@ -80,8 +80,6 @@
         "effect": "catalog:",
       },
       "devDependencies": {
-        "@cloudflare/vite-plugin": "catalog:",
-        "@cloudflare/vitest-pool-workers": "catalog:",
         "@cloudflare/workers-types": "catalog:",
         "@effect/tsgo": "catalog:",
         "@effect/vitest": "catalog:",
@@ -90,9 +88,7 @@
         "oxlint": "catalog:",
         "oxlint-tsgolint": "catalog:",
         "typescript": "catalog:",
-        "vite": "catalog:",
         "vitest": "catalog:",
-        "wrangler": "catalog:",
       },
     },
     "packages/core": {
@@ -110,6 +106,31 @@
         "oxlint-tsgolint": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:",
+      },
+    },
+    "packages/examples": {
+      "name": "@effectivity/examples",
+      "dependencies": {
+        "@effectivity/cli": "workspace:*",
+        "@effectivity/cloudflare": "workspace:*",
+      },
+      "devDependencies": {
+        "@cloudflare/vite-plugin": "catalog:",
+        "@cloudflare/vitest-pool-workers": "catalog:",
+        "@cloudflare/workers-types": "catalog:",
+        "@effect/tsgo": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@effectivity/auth": "workspace:*",
+        "@effectivity/core": "workspace:*",
+        "@types/bun": "catalog:",
+        "effect": "catalog:",
+        "oxfmt": "catalog:",
+        "oxlint": "catalog:",
+        "oxlint-tsgolint": "catalog:",
+        "typescript": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:",
+        "wrangler": "catalog:",
       },
     },
   },
@@ -207,6 +228,8 @@
     "@effectivity/cloudflare": ["@effectivity/cloudflare@workspace:packages/cloudflare"],
 
     "@effectivity/core": ["@effectivity/core@workspace:packages/core"],
+
+    "@effectivity/examples": ["@effectivity/examples@workspace:packages/examples"],
 
     "@emnapi/runtime": ["@emnapi/runtime@1.11.3", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA=="],
 

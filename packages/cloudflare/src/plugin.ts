@@ -12,6 +12,9 @@
  */
 import { Effect, Layer } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
+// Import the plugin contract from the `./plugin` subpath, not the package
+// root: the root re-exports the config loader (and esbuild), which must not
+// enter the Worker bundle that re-exports this factory's package.
 import {
   Build,
   Dev,
@@ -22,20 +25,33 @@ import {
   ProjectRoot,
   Seed,
   Sync,
-} from "@effectivity/cli"
+} from "@effectivity/cli/plugin"
 import type { RuntimeSettings, WranglerD1Binding, WranglerR2Binding } from "./artifacts.ts"
 
+/** The config a project passes to `cloudflarePlugin`. Every field except `r2`
+ * and `d1` has a default; `sync` bakes the resolved values into the generated
+ * artifacts. */
 export interface CloudflarePluginConfig {
   /** Worker name (wrangler `name`) and registration name. Default `"effectivity-cms"`. */
   readonly name?: string
+  /** R2 bucket that backs the core `BlobStore` seam; bound as `BUCKET`. */
   readonly r2: { readonly bucket: string }
+  /** D1 database that backs the identity core; bound as `DB`. `id` defaults to
+   * a placeholder until the database is provisioned. */
   readonly d1: { readonly name: string; readonly id?: string }
-  readonly workerEntry?: string // default "src/index.ts"
+  /** Worker entry file, relative to the instance root. Default `"src/index.ts"`;
+   * the generated `wrangler.jsonc` `main` follows it. */
+  readonly workerEntry?: string
+  /** Auth settings baked into `runtime.generated.ts`. `url` defaults to
+   * `http://localhost:8787`, `secret` to a stable dev value, `admin.email` to
+   * `admin@effectivity.local`. `admin.password` never enters an artifact: `dev`
+   * writes it to `.dev.vars`, production overlays it at deploy. */
   readonly auth?: {
     readonly url?: string
     readonly secret?: string
     readonly admin?: { readonly email?: string; readonly password?: string }
   }
+  /** Catalog root within the R2 bucket. Default `"cms"`. */
   readonly catalog?: { readonly root?: string }
 }
 

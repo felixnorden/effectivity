@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test"
 import { describe, expect, it } from "vitest"
 import { makeIdentity } from "@effectivity/auth"
-import { createComposition } from "../src/composition.ts"
+import { createComposition } from "@effectivity/cloudflare"
 import { settings } from "../src/runtime.generated.ts"
 
 /**
@@ -69,7 +69,7 @@ const adminCookie = async (): Promise<string> => {
 
 describe("composed worker", () => {
   it("dispatches /auth/* to the identity handler and everything else to the api app", async () => {
-    const app = createComposition(env)
+    const app = createComposition(env, settings)
 
     const auth = await app.fetch(
       jsonPost("/auth/sign-in/email", {
@@ -93,7 +93,7 @@ describe("composed worker", () => {
   })
 
   it("rejects anonymous writes and accepts them once signed in", async () => {
-    const app = createComposition(env)
+    const app = createComposition(env, settings)
 
     const anonymous = await app.fetch(put("/documents/session-x", doc("X", "# X")))
     expect(anonymous.status).toBe(401)
@@ -139,7 +139,7 @@ describe("composed worker", () => {
       basePath: "/auth",
     })
 
-    const app = createComposition(env)
+    const app = createComposition(env, settings)
     const cookie = await adminCookie()
 
     // Promote a dedicated service account, then issue it a key admin-side.
@@ -174,7 +174,7 @@ describe("composed worker", () => {
   })
 
   it("migrations run at first boot and seed the admin account", async () => {
-    const app = createComposition(env)
+    const app = createComposition(env, settings)
     await app.fetch(new Request(`${baseURL}/documents/other`))
 
     const tables = await env.DB.prepare(
@@ -191,7 +191,7 @@ describe("composed worker", () => {
   })
 
   it("serves the OpenAPI document", async () => {
-    const app = createComposition(env)
+    const app = createComposition(env, settings)
     const response = await app.fetch(new Request(`${baseURL}/openapi.json`))
     expect(response.status).toBe(200)
     const spec = (await response.json()) as { paths: Record<string, unknown> }

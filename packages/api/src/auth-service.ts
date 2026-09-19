@@ -29,6 +29,9 @@ export interface AuthenticationServiceShape {
   ) => Effect.Effect<Option.Option<AuthIdentity>, AuthFailure>
 }
 
+/** The service tag for the auth gate. Provide a layer that implements
+ * `AuthenticationServiceShape`; `@effectivity/auth` provides the D1-backed
+ * one. */
 export class AuthenticationService extends Context.Service<
   AuthenticationService,
   AuthenticationServiceShape

@@ -2,7 +2,7 @@ import { env } from "cloudflare:test"
 import { describe, expect, it } from "vitest"
 import { Effect, Option } from "effect"
 import { BlobStore, PreconditionFailed } from "@effectivity/core"
-import { r2BlobStore } from "../src/r2-blob-store.ts"
+import { r2BlobStore } from "@effectivity/cloudflare"
 
 /**
  * The R2 adapter against the emulated binding (Workers vitest pool). Each

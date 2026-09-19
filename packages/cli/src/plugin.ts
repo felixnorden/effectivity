@@ -12,14 +12,18 @@
 import { Context, Effect, FileSystem, Layer, Schema, Stdio } from "effect"
 import { ChildProcessSpawner } from "effect/unstable/process"
 
+/** Options for the `dev` capability: the port the dev server listens on. */
 export interface DevOptions {
   readonly port: number
 }
 
+/** Options for the `seed` capability: the base URL of the running worker. */
 export interface SeedOptions {
   readonly url: string
 }
 
+/** The failure type every capability returns. The engine fills `plugin` when a
+ * capability fails and prefixes `message` with the registration name. */
 export class PluginError extends Schema.TaggedError<PluginError>()("PluginError", {
   message: Schema.String,
   /** The failing registration's name; the engine adds it when a capability fails. */
@@ -50,6 +54,8 @@ export interface HostServicesShape {
   readonly stdio: Stdio.Stdio
 }
 
+/** The engine-captured host surface, provided once at the outer boundary.
+ * Registrations receive it as an argument, never as an `RIn`. */
 export class HostServices extends Context.Service<HostServices, HostServicesShape>()(
   "@effectivity/cli/HostServices"
 ) {
@@ -70,23 +76,30 @@ export class HostServices extends Context.Service<HostServices, HostServicesShap
   )
 }
 
-/** Capability identifiers: ordinary typed keys, never reference keys. */
+// Capability identifiers are ordinary typed keys, never reference keys.
+
+/** Regenerate the platform's manufactured artifacts from the config. */
 export class Sync extends Context.Service<Sync, { sync(): Effect.Effect<void, PluginError> }>()(
   "@effectivity/cli/Sync"
 ) {}
 
+/** Sync, then run the dev server. Long-running: it does not return while the
+ * server runs, so later registrations do not run for this capability. */
 export class Dev extends Context.Service<Dev, { dev(options: DevOptions): Effect.Effect<void, PluginError> }>()(
   "@effectivity/cli/Dev"
 ) {}
 
+/** Sync, then build the deployable bundle. */
 export class Build extends Context.Service<Build, { build(): Effect.Effect<void, PluginError> }>()(
   "@effectivity/cli/Build"
 ) {}
 
+/** Serve the built bundle. Long-running. */
 export class Preview extends Context.Service<Preview, { preview(): Effect.Effect<void, PluginError> }>()(
   "@effectivity/cli/Preview"
 ) {}
 
+/** Populate a running instance with example data. */
 export class Seed extends Context.Service<Seed, { seed(options: SeedOptions): Effect.Effect<void, PluginError> }>()(
   "@effectivity/cli/Seed"
 ) {}
