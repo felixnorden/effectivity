@@ -7,6 +7,7 @@
  */
 import { type Context, Effect, Layer, Option, Path, type Scope } from "effect"
 import { Argument, Command, Flag } from "effect/unstable/cli"
+import { commandGroups } from "./command-groups.ts"
 import { dispatch } from "./dispatch.ts"
 import type { Engine } from "./engine.ts"
 import { loadRawConfig } from "./loader.ts"
@@ -189,12 +190,7 @@ export const buildCli = (engine: Engine) => {
     }),
   ).pipe(Command.withDescription("Write a starter effectivity.config.ts"))
 
-  const groups = engine.registrations.map((registration) =>
-    Command.make(registration.name).pipe(
-      Command.withDescription(`Commands contributed by the ${registration.name} plugin`),
-      Command.withSubcommands([]),
-    ),
+  return effectivity.pipe(
+    Command.withSubcommands([sync, dev, build, preview, seed, init, ...commandGroups(engine)]),
   )
-
-  return effectivity.pipe(Command.withSubcommands([sync, dev, build, preview, seed, init, ...groups]))
 }

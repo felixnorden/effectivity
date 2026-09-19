@@ -4,7 +4,7 @@
  * Command.ts JSDoc pattern, a recording registration stub, and an engine
  * builder over a test host.
  */
-import { Context, Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effect"
+import { Console, Context, Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effect"
 import { ChildProcessSpawner } from "effect/unstable/process"
 import type { Engine } from "../src/engine.ts"
 import {
@@ -16,6 +16,17 @@ import {
   Sync,
 } from "../src/plugin.ts"
 import type { AnyPluginRegistration } from "../src/plugin.ts"
+
+/** A Console service that collects log/error output, so help output can be asserted. */
+export const capturingConsole = (output: string[]): Console.Console =>
+  Object.assign(Object.create(console) as Console.Console, {
+    log: (...args: ReadonlyArray<unknown>) => {
+      output.push(args.map(String).join(" "))
+    },
+    error: (...args: ReadonlyArray<unknown>) => {
+      output.push(args.map(String).join(" "))
+    },
+  })
 
 /** The shared CLI runner test layer: deterministic stdio/terminal/noop fs. */
 export const makeCliTestLayer = (

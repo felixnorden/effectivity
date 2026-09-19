@@ -20,7 +20,8 @@ export const missingCapability = (
     registrations.length === 0 ? "(none)" : registrations.map((registration) => registration.name).join(", ")
   })`
 
-const attributeFailure =
+/** Prefix a capability failure with its registration's name, once, in one place. */
+export const attributeFailure =
   (pluginName: string) =>
   <A, R>(effect: Effect.Effect<A, PluginError, R>): Effect.Effect<A, PluginError, R> =>
     Effect.mapError(

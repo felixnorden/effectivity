@@ -10,20 +10,15 @@ import { Command } from "effect/unstable/cli"
 import { buildCli } from "../src/command.ts"
 import { type Engine, engineLayer } from "../src/engine.ts"
 import { PluginError } from "../src/plugin.ts"
-import { makeCliTestLayer, makeTestEngine, type Recording, recordingRegistration } from "./helpers.ts"
+import {
+  capturingConsole,
+  makeCliTestLayer,
+  makeTestEngine,
+  type Recording,
+  recordingRegistration,
+} from "./helpers.ts"
 
 const emptyRecords = (): Recording => ({ syncs: [], ports: [], urls: [] })
-
-/** A Console service that collects log/error output, so help can be asserted. */
-const capturingConsole = (output: string[]): Console.Console =>
-  Object.assign(Object.create(console) as Console.Console, {
-    log: (...args: ReadonlyArray<unknown>) => {
-      output.push(args.map(String).join(" "))
-    },
-    error: (...args: ReadonlyArray<unknown>) => {
-      output.push(args.map(String).join(" "))
-    },
-  })
 
 const run = (engine: Engine, args: ReadonlyArray<string>, output: string[] = []) =>
   Command.runWith(buildCli(engine), { version: "0.0.0" })(args).pipe(
