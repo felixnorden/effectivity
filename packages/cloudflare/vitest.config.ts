@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config"
+import { defineConfig, configDefaults } from "vitest/config"
 import { cloudflareTest } from "@cloudflare/vitest-pool-workers"
 
 /**
@@ -8,6 +8,9 @@ import { cloudflareTest } from "@cloudflare/vitest-pool-workers"
  * injected as a binding: catalog origin, signing secret, and admin email come
  * from the baked runtime settings (src/runtime.generated.ts), and the password
  * is never baked — in dev it lives in .dev.vars, here in the pool bindings.
+ *
+ * Node-only tests (config type-checking spawns the compiler) live under
+ * `test/node/` and run through `vitest.config.node.ts`.
  */
 export default defineConfig({
   plugins: [
@@ -20,4 +23,7 @@ export default defineConfig({
       },
     }),
   ],
+  test: {
+    exclude: [...configDefaults.exclude, "test/node/**"],
+  },
 })

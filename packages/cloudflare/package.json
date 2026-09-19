@@ -8,8 +8,8 @@
   "scripts": {
     "lint": "oxlint",
     "fmt": "oxfmt",
-    "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.config.json",
+    "test": "vitest run && vitest run --config vitest.config.node.ts",
     "prepare": "effect-tsgo patch --typescript --oxlint",
     "seed": "bash ./scripts/seed.sh",
     "cms": "effectivity"
