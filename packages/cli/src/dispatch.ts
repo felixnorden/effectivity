@@ -27,21 +27,32 @@ const attributeFailure =
         }),
     )
 
-/** Slice 1 scope: run the FIRST registration that provides the capability. */
+/**
+ * Run the capability on EVERY registration that provides it, in registration
+ * order, and stop at the first failure. The loop body is sequential by
+ * construction: `yield*` on the previous registration completes before the
+ * next iteration starts, so a long-running provider blocks the later ones
+ * exactly as the design documents. No concurrency, no cancellation, no
+ * reordering is added.
+ */
 export const dispatch = Effect.fn("dispatch")(function* <Identifier, Shape, A>(
   engine: Engine,
   tag: Context.Key<Identifier, Shape>,
   capabilityName: string,
   run: (service: Shape) => Effect.Effect<A, PluginError>,
 ): Effect.fn.Return<A, PluginError, Scope.Scope> {
+  let provided = false
   for (const registration of engine.registrations) {
     const context = yield* Layer.build(registration.capabilities(engine.host))
     const service = Context.getOption(context, tag)
-    if (Option.isSome(service)) {
-      return yield* run(service.value).pipe(attributeFailure(registration.name))
-    }
+    if (Option.isNone(service)) continue
+    provided = true
+    yield* run(service.value).pipe(attributeFailure(registration.name)) // stops here on failure
   }
-  return yield* new PluginError({
-    message: `no registered plugin provides the "${capabilityName}" capability (registered plugins: ${names(engine.registrations)})`,
-  })
+  if (!provided) {
+    return yield* new PluginError({
+      message: `no registered plugin provides the "${capabilityName}" capability (registered plugins: ${names(engine.registrations)})`,
+    })
+  }
+  return undefined as A
 })
