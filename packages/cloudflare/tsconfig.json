@@ -1,9 +1,16 @@
 {
   "$schema": "./node_modules/@effect/tsgo/schema.json",
   "extends": "../../tsconfig.base.json",
-  "include": ["src", "test", "worker-configuration.d.ts"],
+  "include": [
+    "src",
+    "test",
+    "worker-configuration.d.ts"
+  ],
   "compilerOptions": {
-    "types": ["@cloudflare/vitest-pool-workers/types"],
+    "types": [
+      "@cloudflare/vitest-pool-workers/types",
+      "@types/bun"
+    ],
     "plugins": [
       {
         "name": "@effect/language-service"

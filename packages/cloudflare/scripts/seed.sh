@@ -7,11 +7,12 @@
 # Usage:
 #   bun run seed                              # local dev at http://localhost:8788
 #   CMS_URL=https://cms.example.com bun run seed
+#   effectivity seed --url https://cms.example.com
 #
 # Environment overrides:
 #   CMS_URL        base URL of the running worker (default http://localhost:8788)
 #   ORIGIN         must match the worker's AUTH_URL (CSRF origin check)
-#   ADMIN_EMAIL / ADMIN_PASSWORD   the boot-seeded admin (cms.config.ts auth.admin.email, .dev.vars)
+#   ADMIN_EMAIL / ADMIN_PASSWORD   the boot-seeded admin (effectivity.config.ts auth.admin, .dev.vars)
 set -u
 
 CMS_URL="${CMS_URL:-http://localhost:8788}"

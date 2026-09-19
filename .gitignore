@@ -24,8 +24,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env.local
 
 # @effectivity/cli generated state + scratch
-cms.state.json
-.cms/
+.effectivity/
 
 # caches
 .eslintcache

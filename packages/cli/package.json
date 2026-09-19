@@ -13,7 +13,12 @@
     "prepare": "effect-tsgo patch --typescript --oxlint"
   },
   "dependencies": {
+    "@effect/platform-bun": "catalog:",
+    "effect": "catalog:",
     "esbuild": "catalog:"
+  },
+  "bin": {
+    "effectivity": "./src/cli.ts"
   },
   "devDependencies": {
     "@effect/tsgo": "catalog:",

@@ -1,45 +1,31 @@
 /**
- * @effectivity/cli — configure, generate, and run an effectivity CMS instance.
+ * @effectivity/cli — an Effect-native command engine. A project keeps its
+ * settings in `effectivity.config.ts` (Vite-style; see `defineConfig` in
+ * `./config.ts`). The engine loads that file, captures the host IO and the
+ * project root once, and runs each platform capability over the ordered
+ * registrations a project lists — see `./plugin.ts` and `./dispatch.ts`.
  *
- * A project keeps its settings in `cms.config.ts` (Vite-style; see
- * `defineConfig` in `./config.ts`). The CLI loads that file the way Vite
- * loads `vite.config.ts`, then derives the deployable surface:
- *
- * - `wrangler.jsonc`  — bindings-only Workers config (R2 + D1 + observability)
- * - `src/runtime.generated.ts` — the settings object baked into the worker
- *   bundle, so catalog/auth origins and the dev signing secret are NOT env
- *   vars an operator must set by hand.
- *
- * Secrets stay off the bundle: the admin password goes to `.dev.vars` (dev)
- * or `wrangler secret put` (deploy); production overlays any baked value by
- * setting `AUTH_SECRET` / `AUTH_URL` / `AUTH_ADMIN_*` in an environment.
+ * All Cloudflare orchestration lives in `@effectivity/cloudflare` behind its
+ * plugin factory; nothing in this package knows about wrangler, R2, or D1.
  */
 
-export {
-  defineConfig,
-  resolveConfig,
-  DEFAULT_SECRET,
-  DEFAULT_ADMIN_PASSWORD,
-  type CmsConfig,
-  type ResolvedCmsConfig,
-} from "./config.ts"
-export { findConfigFile, loadConfig, type LoadedConfig } from "./loader.ts"
-export {
-  sync,
-  generateRuntimeModule,
-  generateWranglerConfig,
-  readState,
-  writeState,
-  runtimeModulePath,
-  wranglerConfigPath,
-  statePath,
-  type CmsState,
-} from "./generate.ts"
-export {
-  syncCommand,
-  devCommand,
-  provisionCommand,
-  deployCommand,
-  seedCommand,
-  initCommand,
-} from "./commands.ts"
+export { HostServices, PluginError, ProjectRoot, Sync, Dev, Build, Preview, Seed } from "./plugin.ts"
+export type {
+  AnyPluginRegistration,
+  Capability,
+  CommandDeclaration,
+  CommandInput,
+  DevOptions,
+  FlagDeclaration,
+  HostServicesShape,
+  PluginRegistration,
+  SeedOptions,
+} from "./plugin.ts"
+export { ENGINE_DEFAULTS, defineConfig } from "./config.ts"
+export type { EffectivityConfig } from "./config.ts"
+export { CONFIG_FILENAMES, findConfigFile, loadRawConfig } from "./loader.ts"
+export type { LoadedConfig } from "./loader.ts"
+export { boot, engineLayer } from "./engine.ts"
+export type { Engine } from "./engine.ts"
+export { dispatch } from "./dispatch.ts"
+export { buildCli } from "./command.ts"
