@@ -13,7 +13,9 @@ orchestration behind the generic `@effectivity/cli` engine.
   NOT environment variables.
 - `src/plugin.ts` — `cloudflarePlugin(config)`: a capability registration
   (`sync`/`dev`/`build`/`preview`/`seed`) over the Vite dev engine. All
-  Cloudflare orchestration lives here, never in the CLI.
+  Cloudflare orchestration lives here, never in the CLI. The registration
+  name is `config.name` (default `effectivity-cms`), so it also names the
+  plugin's command group.
 - `src/r2-blob-store.ts` — the @effectivity/core `BlobStore` seam over an R2
   binding (etag token = the raw unquoted R2 etag, which the conditional API
   accepts; infra failures map to the seam's declared errors).
@@ -83,6 +85,10 @@ honored), with bindings and compat settings read from the generated
 `wrangler.jsonc`. `build` produces the bundle to `dist/`; `preview` serves
 it. The Vite engine is configured in the committed, hand-owned
 `vite.config.ts` (`plugins: [cloudflare()]`).
+
+`dev` and `preview` do not return while the server runs. A registered plugin
+placed after the Cloudflare plugin does not run for those two capabilities.
+This is the engine's documented long-running-operation limitation.
 
 ### Regenerate manufactured files
 
