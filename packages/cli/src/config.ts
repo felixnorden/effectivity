@@ -41,5 +41,10 @@ export const ENGINE_DEFAULTS: Required<EffectivityConfig> = {
 /**
  * Vite-style entry: type-checks the config object and passes it through.
  * The engine resolves defaults afterwards via {@link ENGINE_DEFAULTS}.
+ *
+ * The parameter is typed as `EffectivityConfig` directly, not as a generic
+ * constrained by it. A generic parameter suppresses the excess-property check
+ * as soon as the object literal carries one known property (`plugins`), which
+ * would let an unknown top-level field through.
  */
-export const defineConfig = <const T extends EffectivityConfig>(config: T): T => config
+export const defineConfig = (config: EffectivityConfig): EffectivityConfig => config
