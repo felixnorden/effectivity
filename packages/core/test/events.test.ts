@@ -63,7 +63,7 @@ describe("change events", () => {
         const pubsub = yield* PubSub.bounded<ChangeEvent>(1)
         const events = ChangeEvents.of({
           subscribe: Effect.succeed(Stream.fromPubSub(pubsub)),
-          publish: (event) => Effect.map(PubSub.publish(pubsub, event), () => undefined),
+          publish: (event) => Effect.asVoid(PubSub.publish(pubsub, event)),
         })
         // slow consumer: subscribed, never takes — fills the bounded capacity
         yield* PubSub.subscribe(pubsub)

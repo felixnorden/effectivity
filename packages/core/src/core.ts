@@ -1,25 +1,24 @@
-import { Context, Effect, Layer } from "effect"
+import { Layer } from "effect"
 import { BlobStore } from "./blob-store.ts"
 import { Catalog } from "./catalog.ts"
 import { CatalogRoot, type CatalogRootConfig } from "./config.ts"
-import { DocumentStore, type DocumentStoreShape, documentStoreShape } from "./document-store.ts"
+import { DocumentStore } from "./document-store.ts"
 import { ChangeEvents } from "./events.ts"
 import { Naming } from "./naming.ts"
 import { ReferenceGraph } from "./reference-graph.ts"
 
 /**
  * The services the wired store group provides to consumers: the facade, the
- * read models, the caller's blob layer (kept visible so `Effect.provide`
- * cancels facade requirements), and the config reference (the facade and read
- * models still require it at runtime).
+ * read models, and the caller's blob layer (kept visible so effects can still
+ * talk to the seam directly). The config reference stays internal: the read
+ * models and facade capture it when their layers are built.
  */
 export type CoreProvides =
-  | DocumentStoreShape
+  | DocumentStore
   | Naming
   | Catalog
   | ReferenceGraph
   | ChangeEvents
-  | Context.Reference<CatalogRootConfig>
   | BlobStore
 
 /**
@@ -41,29 +40,26 @@ export const Core = {
     config: CatalogRootConfig,
   ) => {
     const configLayer = Layer.succeed(CatalogRoot, config)
-    const infra = Layer.provideMerge(
-      Layer.merge(
-        Layer.merge(Naming.layer, configLayer),
-        Layer.merge(ReferenceGraph.layer, Catalog.layer),
-      ),
-      ChangeEvents.layer,
-    )
-    const storeLayer = Layer.effect(
-      DocumentStore,
-      Effect.sync(() => documentStoreShape),
+
+    // Read models capture BlobStore + CatalogRoot when their layers are
+    // created, so their method signatures carry no requirements. BlobStore
+    // stays in the output so consumers can still use the seam directly.
+    const readModels = Layer.merge(Catalog.layer, ReferenceGraph.layer).pipe(
+      Layer.provide(configLayer),
+      Layer.provideMerge(blobStoreLayer),
     )
 
-    // provideMerge (not provide): consumer effects still require BlobStore and
-    // the config reference, so they must stay visible for `Effect.provide` to
-    // cancel them. The composed layer keeps only the blob layer's own
-    // requirements (`Bucket`) open.
-    //
-    // The single boundary cast: this rc does not thread the `Context.Reference`
-    // output of `configLayer` through merged `Layer` unions, so the type-level
-    // output would silently drop the config service (runtime is correct — the
-    // layer is merged in). The cast re-declares the full output for callers.
-    return Layer.mergeAll(configLayer, infra, storeLayer).pipe(
-      Layer.provideMerge(blobStoreLayer),
-    ) as Layer.Layer<CoreProvides, never, Bucket>
+    // The facade captures the read models + Naming + ChangeEvents + config at
+    // creation. Its output has no requirements of its own.
+    const facade = DocumentStore.layer.pipe(
+      Layer.provide(readModels),
+      Layer.provide(configLayer),
+      Layer.provide(Naming.layer),
+      Layer.provide(ChangeEvents.layer),
+    )
+
+    // Expose every service the caller may use. The same layer values feed both
+    // the facade and the output, so the shared instances are built once.
+    return Layer.mergeAll(configLayer, Naming.layer, ChangeEvents.layer, readModels, facade)
   },
 }

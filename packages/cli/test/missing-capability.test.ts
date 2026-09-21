@@ -52,22 +52,25 @@ describe("missing capability", () => {
     })
   })
 
-  it.effect("the failure names the capability and lists no plugins when the collection is empty", () => {
-    const engine = makeTestEngine([])
-    return Effect.gen(function* () {
-      const failure = yield* run(engine, ["build"]).pipe(Effect.flip)
-      expect(failure).toBeInstanceOf(PluginError)
-      expect(failure.message).toContain("build")
-      expect(failure.message).toContain("(none)")
+  it.effect(
+    "the failure names the capability and lists no plugins when the collection is empty",
+    () => {
+      const engine = makeTestEngine([])
+      return Effect.gen(function* () {
+        const failure = yield* run(engine, ["build"]).pipe(Effect.flip)
+        expect(failure).toBeInstanceOf(PluginError)
+        expect(failure.message).toContain("build")
+        expect(failure.message).toContain("(none)")
 
-      const output: string[] = []
-      yield* run(engine, ["--help"], output)
-      const help = output.join("")
-      for (const command of ["sync", "dev", "build", "preview", "seed", "init"]) {
-        expect(help).toContain(command)
-      }
-    })
-  })
+        const output: string[] = []
+        yield* run(engine, ["--help"], output)
+        const help = output.join("")
+        for (const command of ["sync", "dev", "build", "preview", "seed", "init"]) {
+          expect(help).toContain(command)
+        }
+      })
+    },
+  )
 
   it.effect("the seed command is present in help when no registration provides seed", () => {
     const engine = makeTestEngine([recordingRegistration("alpha", emptyRecords(), ["sync"])])

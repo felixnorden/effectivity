@@ -26,12 +26,12 @@ import {
  * One dispatch path for every engine command, so a missing capability fails in
  * exactly one place. Delegates to `dispatch` and returns its effect directly.
  */
-const runCapability = <Identifier, Shape, A>(
+const runCapability = <Identifier, Shape>(
   engine: Engine,
   tag: Context.Key<Identifier, Shape>,
   name: string,
-  run: (service: Shape) => Effect.Effect<A, PluginError>,
-): Effect.Effect<A, PluginError, Scope.Scope> => dispatch(engine, tag, name, run)
+  run: (service: Shape) => Effect.Effect<void, PluginError>,
+): Effect.Effect<void, PluginError, Scope.Scope> => dispatch(engine, tag, name, run)
 
 // Root command — shared --config flag available to all subcommands
 const effectivity = Command.make("effectivity").pipe(
@@ -80,7 +80,7 @@ export const buildCli = (engine: Engine) => {
     "sync",
     {},
     Effect.fn("sync")(function* () {
-      yield* runCapability(engine, Sync, "sync", (capability) => capability.sync())
+      yield* runCapability(engine, Sync, "sync", (capability) => capability.sync)
     }),
   ).pipe(Command.withDescription("Regenerate wrangler.jsonc + src/runtime.generated.ts"))
 
@@ -106,7 +106,7 @@ export const buildCli = (engine: Engine) => {
     "build",
     {},
     Effect.fn("build")(function* () {
-      yield* runCapability(engine, Build, "build", (capability) => capability.build())
+      yield* runCapability(engine, Build, "build", (capability) => capability.build)
     }),
   ).pipe(Command.withDescription("Regenerate artifacts and bundle the worker (vite build)"))
 
@@ -114,7 +114,7 @@ export const buildCli = (engine: Engine) => {
     "preview",
     {},
     Effect.fn("preview")(function* () {
-      yield* runCapability(engine, Preview, "preview", (capability) => capability.preview())
+      yield* runCapability(engine, Preview, "preview", (capability) => capability.preview)
     }),
   ).pipe(
     Command.withDescription(
@@ -180,7 +180,7 @@ export const buildCli = (engine: Engine) => {
           host,
           projectRoot: loaded.dir,
         }
-        yield* runCapability(nested, Sync, "sync", (capability) => capability.sync()).pipe(
+        yield* runCapability(nested, Sync, "sync", (capability) => capability.sync).pipe(
           Effect.provide(Layer.succeed(ProjectRoot, loaded.dir)),
         )
       }

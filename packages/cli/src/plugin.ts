@@ -57,7 +57,7 @@ export interface HostServicesShape {
 /** The engine-captured host surface, provided once at the outer boundary.
  * Registrations receive it as an argument, never as an `RIn`. */
 export class HostServices extends Context.Service<HostServices, HostServicesShape>()(
-  "@effectivity/cli/HostServices"
+  "@effectivity/cli/HostServices",
 ) {
   /**
    * The canonical constructor: the aggregate host surface, built from the
@@ -72,37 +72,40 @@ export class HostServices extends Context.Service<HostServices, HostServicesShap
         spawner: yield* ChildProcessSpawner.ChildProcessSpawner,
         stdio: yield* Stdio.Stdio,
       })
-    })
+    }),
   )
 }
 
 // Capability identifiers are ordinary typed keys, never reference keys.
 
 /** Regenerate the platform's manufactured artifacts from the config. */
-export class Sync extends Context.Service<Sync, { sync(): Effect.Effect<void, PluginError> }>()(
-  "@effectivity/cli/Sync"
+export class Sync extends Context.Service<Sync, { sync: Effect.Effect<void, PluginError> }>()(
+  "@effectivity/cli/Sync",
 ) {}
 
 /** Sync, then run the dev server. Long-running: it does not return while the
  * server runs, so later registrations do not run for this capability. */
-export class Dev extends Context.Service<Dev, { dev(options: DevOptions): Effect.Effect<void, PluginError> }>()(
-  "@effectivity/cli/Dev"
-) {}
+export class Dev extends Context.Service<
+  Dev,
+  { dev(options: DevOptions): Effect.Effect<void, PluginError> }
+>()("@effectivity/cli/Dev") {}
 
 /** Sync, then build the deployable bundle. */
-export class Build extends Context.Service<Build, { build(): Effect.Effect<void, PluginError> }>()(
-  "@effectivity/cli/Build"
+export class Build extends Context.Service<Build, { build: Effect.Effect<void, PluginError> }>()(
+  "@effectivity/cli/Build",
 ) {}
 
 /** Serve the built bundle. Long-running. */
-export class Preview extends Context.Service<Preview, { preview(): Effect.Effect<void, PluginError> }>()(
-  "@effectivity/cli/Preview"
-) {}
+export class Preview extends Context.Service<
+  Preview,
+  { preview: Effect.Effect<void, PluginError> }
+>()("@effectivity/cli/Preview") {}
 
 /** Populate a running instance with example data. */
-export class Seed extends Context.Service<Seed, { seed(options: SeedOptions): Effect.Effect<void, PluginError> }>()(
-  "@effectivity/cli/Seed"
-) {}
+export class Seed extends Context.Service<
+  Seed,
+  { seed(options: SeedOptions): Effect.Effect<void, PluginError> }
+>()("@effectivity/cli/Seed") {}
 
 export type Capability = Sync | Dev | Build | Preview | Seed
 // Deliberately no static `layer` on the capability tags: their implementations

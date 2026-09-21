@@ -24,13 +24,13 @@ const syncRegistration = (
     Layer.succeed(
       Sync,
       Sync.of({
-        sync: Effect.fn(`${name}.sync`)(function* () {
+        sync: Effect.gen(function* () {
           records.syncs.push(name)
           if (outcome === "fail") {
             return yield* new PluginError({ message: `${name} exploded` })
           }
           yield* Effect.void
-        }),
+        }).pipe(Effect.withSpan(`${name}.sync`)),
       }),
     ),
   commands: [],
@@ -44,7 +44,7 @@ describe("fan-out dispatch", () => {
       syncRegistration("beta", records, "ok"),
     ])
     return Effect.gen(function* () {
-      yield* dispatch(engine, Sync, "sync", (capability) => capability.sync())
+      yield* dispatch(engine, Sync, "sync", (capability) => capability.sync)
       expect(records.syncs).toEqual(["alpha", "beta"])
     })
   })
@@ -56,7 +56,7 @@ describe("fan-out dispatch", () => {
       syncRegistration("beta", records, "ok"),
     ])
     return Effect.gen(function* () {
-      const failure = yield* dispatch(engine, Sync, "sync", (capability) => capability.sync()).pipe(
+      const failure = yield* dispatch(engine, Sync, "sync", (capability) => capability.sync).pipe(
         Effect.flip,
       )
       expect(failure.message).toContain("alpha exploded")
@@ -84,7 +84,7 @@ describe("fan-out dispatch", () => {
       syncRegistration("beta", records, "fail"),
     ])
     return Effect.gen(function* () {
-      const failure = yield* dispatch(engine, Sync, "sync", (capability) => capability.sync()).pipe(
+      const failure = yield* dispatch(engine, Sync, "sync", (capability) => capability.sync).pipe(
         Effect.flip,
       )
       expect(failure.plugin).toBe("beta")

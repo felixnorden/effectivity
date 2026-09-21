@@ -9,7 +9,16 @@
  * plugin factory; nothing in this package knows about wrangler, R2, or D1.
  */
 
-export { HostServices, PluginError, ProjectRoot, Sync, Dev, Build, Preview, Seed } from "./plugin.ts"
+export {
+  HostServices,
+  PluginError,
+  ProjectRoot,
+  Sync,
+  Dev,
+  Build,
+  Preview,
+  Seed,
+} from "./plugin.ts"
 export type {
   AnyPluginRegistration,
   Capability,

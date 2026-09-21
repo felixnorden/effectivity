@@ -58,15 +58,15 @@ curl -b /tmp/cj.txt -X PUT -H "content-type: text/markdown" \
 
 The command set:
 
-| command | effect |
-| --- | --- |
-| `effectivity dev [--port N]` | sync, write dev secrets, start the Vite dev server. Port 8788 by default |
-| `effectivity seed [--url URL]` | run `scripts/seed.sh` against a running worker |
-| `effectivity build` | sync and build the worker bundle to `dist/` |
-| `effectivity preview` | serve the built bundle |
-| `effectivity sync` | regenerate `wrangler.jsonc` and `src/runtime.generated.ts` |
-| `effectivity init [dir]` | write a starter `effectivity.config.ts` |
-| `effectivity <plugin> <cmd>` | run a command a plugin contributes |
+| command                        | effect                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------ |
+| `effectivity dev [--port N]`   | sync, write dev secrets, start the Vite dev server. Port 8788 by default |
+| `effectivity seed [--url URL]` | run `scripts/seed.sh` against a running worker                           |
+| `effectivity build`            | sync and build the worker bundle to `dist/`                              |
+| `effectivity preview`          | serve the built bundle                                                   |
+| `effectivity sync`             | regenerate `wrangler.jsonc` and `src/runtime.generated.ts`               |
+| `effectivity init [dir]`       | write a starter `effectivity.config.ts`                                  |
+| `effectivity <plugin> <cmd>`   | run a command a plugin contributes                                       |
 
 `effectivity --help` works with no config file present.
 
@@ -124,17 +124,17 @@ only required bindings are the `BUCKET` R2 binding and the `DB` D1 binding.
 
 The Worker serves a JSON API with an OpenAPI document at `/openapi.json`.
 
-| route | auth | does |
-| --- | --- | --- |
-| `GET /documents` | public | list documents. `?folder=` filters |
-| `GET /documents/{path}` | public | raw markdown, or `?view=model` for the parsed model and references |
-| `PUT /documents/{path}` | yes | create without `If-Match`, update with it |
-| `DELETE /documents/{path}` | yes | idempotent. Returns 409 when references would break |
-| `GET /assets`, `GET /assets/{id}` | public | asset listing and bytes |
-| `PUT` / `DELETE /assets/{id}` | yes | same conditional rules. The upload content type is kept |
-| `GET /references` | public | per-document reference report |
-| `POST /auth/sign-in/email` | public | sets a session cookie |
-| `POST /auth/api-key/create` | yes | issues a key for headless clients |
+| route                             | auth   | does                                                               |
+| --------------------------------- | ------ | ------------------------------------------------------------------ |
+| `GET /documents`                  | public | list documents. `?folder=` filters                                 |
+| `GET /documents/{path}`           | public | raw markdown, or `?view=model` for the parsed model and references |
+| `PUT /documents/{path}`           | yes    | create without `If-Match`, update with it                          |
+| `DELETE /documents/{path}`        | yes    | idempotent. Returns 409 when references would break                |
+| `GET /assets`, `GET /assets/{id}` | public | asset listing and bytes                                            |
+| `PUT` / `DELETE /assets/{id}`     | yes    | same conditional rules. The upload content type is kept            |
+| `GET /references`                 | public | per-document reference report                                      |
+| `POST /auth/sign-in/email`        | public | sets a session cookie                                              |
+| `POST /auth/api-key/create`       | yes    | issues a key for headless clients                                  |
 
 The full table, error codes, and a longer curl walkthrough live in
 [packages/examples/README.md](packages/examples/README.md).

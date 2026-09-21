@@ -59,7 +59,7 @@ export const boot = Effect.fn("boot")(function* (
     catch: (cause) =>
       new PluginError({ message: `could not load effectivity.config.ts: ${String(cause)}` }),
   })
-  const registrations = loaded === null ? [] : loaded.config.plugins ?? []
+  const registrations = loaded === null ? [] : (loaded.config.plugins ?? [])
   yield* validateRegistrations(registrations)
   return {
     registrations,

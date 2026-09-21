@@ -1,6 +1,9 @@
 {
   "name": "@effectivity/cli",
   "private": true,
+  "bin": {
+    "effectivity": "./src/cli.ts"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
@@ -17,9 +20,6 @@
     "@effect/platform-bun": "catalog:",
     "effect": "catalog:",
     "esbuild": "catalog:"
-  },
-  "bin": {
-    "effectivity": "./src/cli.ts"
   },
   "devDependencies": {
     "@effect/tsgo": "catalog:",

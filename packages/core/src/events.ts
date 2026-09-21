@@ -43,7 +43,7 @@ export class ChangeEvents extends Context.Service<ChangeEvents, ChangeEventShape
       const pubsub = yield* PubSub.unbounded<ChangeEvent>()
       return ChangeEvents.of({
         subscribe: Effect.succeed(Stream.fromPubSub(pubsub)),
-        publish: (event) => Effect.map(PubSub.publish(pubsub, event), () => undefined),
+        publish: (event) => Effect.asVoid(PubSub.publish(pubsub, event)),
       })
     }),
   )

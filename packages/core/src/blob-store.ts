@@ -18,7 +18,7 @@ export type Version = typeof Version.Type
 /** Lightweight metadata returned with every blob (version is always present). */
 export const BlobMeta = Schema.Struct({
   version: Version,
-  size: Schema.Number,
+  size: Schema.Finite,
   contentType: Schema.Option(Schema.String),
 })
 export type BlobMeta = typeof BlobMeta.Type

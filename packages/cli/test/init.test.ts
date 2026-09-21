@@ -58,7 +58,8 @@ const runInit = (dir: string, writes: Map<string, string>) => {
         engineLayer(engine),
       ),
     ),
-  ).pipe(Effect.scoped)
+    Effect.scoped,
+  )
 }
 
 describe("init command", () => {

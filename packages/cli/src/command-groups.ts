@@ -31,14 +31,15 @@ const toFlag = (declaration: FlagDeclaration): Flag.Flag<any> => {
     ? aliased.pipe(Flag.optional)
     : declaration.default === undefined
       ? aliased
-      : aliased.pipe(Flag.withDefault(declaration.default as never))
+      : aliased.pipe(Flag.withDefault(declaration.default))
 }
 
-/** The framework's flag record is built from plain data; the widening cast is the boundary. */
-const flagsOf = (declaration: CommandDeclaration): Record<string, Flag.Flag<never>> =>
+/** The framework's flag record is built from plain data; the framework's
+ * `Command.Config` accepts each flag at its erased payload type. */
+const flagsOf = (declaration: CommandDeclaration): Record<string, Flag.Flag<any>> =>
   Object.fromEntries(
-    declaration.flags.map((flag) => [flag.name, toFlag(flag)]),
-  ) as Record<string, Flag.Flag<never>>
+    declaration.flags.map((flag): [string, Flag.Flag<any>] => [flag.name, toFlag(flag)]),
+  )
 
 /** One command group per registration, in registration order. */
 export const commandGroups = (engine: Engine) => {
@@ -51,10 +52,9 @@ export const commandGroups = (engine: Engine) => {
     // the engine does not merge capability implementations across
     // registrations for the command path.
     const own = yield* Layer.build(registration.capabilities(engine.host))
-    return yield* declaration.handler(input).pipe(
-      Effect.provide(own),
-      attributeFailure(registration.name),
-    )
+    return yield* declaration
+      .handler(input)
+      .pipe(Effect.provide(own), attributeFailure(registration.name))
   })
 
   return engine.registrations.map((registration) =>

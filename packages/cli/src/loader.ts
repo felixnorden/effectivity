@@ -51,6 +51,16 @@ export interface LoadedConfig<T = EffectivityConfig> {
   readonly dir: string
 }
 
+/** The `default` export of a dynamically imported config module, or `undefined`. */
+const moduleDefault = (loaded: unknown): unknown =>
+  typeof loaded === "object" && loaded !== null && "default" in loaded ? loaded.default : undefined
+
+/** A config module's default export: an object with an optional `plugins` array. */
+const isEffectivityConfig = (value: unknown): value is EffectivityConfig =>
+  typeof value === "object" &&
+  value !== null &&
+  (!("plugins" in value) || Array.isArray(value.plugins))
+
 /**
  * Load a project config file. `explicit` is a path relative to `startDir`;
  * when omitted the config is discovered by walking up. Returns `null` when no
@@ -96,9 +106,9 @@ export const loadRawConfig = async (
       await rm(scratch, { recursive: true, force: true })
     }
   }
-  const raw = (loaded as { readonly default?: unknown }).default
-  if (typeof raw !== "object" || raw === null) {
+  const raw = moduleDefault(loaded)
+  if (!isEffectivityConfig(raw)) {
     throw new Error(`effectivity.config at ${file} must default-export an EffectivityConfig object`)
   }
-  return { config: raw as EffectivityConfig, file, dir: dirname(file) }
+  return { config: raw, file, dir: dirname(file) }
 }

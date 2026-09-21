@@ -38,26 +38,11 @@ export type DocumentDeleteVerdict =
   | { readonly status: "refused"; readonly orphanedAssets: Chunk.Chunk<string> }
 
 export interface ReferenceGraphShape {
-  documentReferences(
-    docKey: string,
-  ): Effect.Effect<
-    Chunk.Chunk<ResolvedReference>,
-    never,
-    BlobStore | Context.Reference<CatalogRootConfig>
-  >
-  referencersOf(
-    assetKey: string,
-  ): Effect.Effect<HashSet.HashSet<string>, never, BlobStore | Context.Reference<CatalogRootConfig>>
-  wouldMoveBreakReferences(
-    docKey: string,
-    destKey: string,
-  ): Effect.Effect<MoveVerdict, never, BlobStore | Context.Reference<CatalogRootConfig>>
-  wouldAssetDeleteBeReferenced(
-    assetKey: string,
-  ): Effect.Effect<AssetDeleteVerdict, never, BlobStore | Context.Reference<CatalogRootConfig>>
-  wouldDocumentDeleteOrphanAssets(
-    docKey: string,
-  ): Effect.Effect<DocumentDeleteVerdict, never, BlobStore | Context.Reference<CatalogRootConfig>>
+  documentReferences(docKey: string): Effect.Effect<Chunk.Chunk<ResolvedReference>>
+  referencersOf(assetKey: string): Effect.Effect<HashSet.HashSet<string>>
+  wouldMoveBreakReferences(docKey: string, destKey: string): Effect.Effect<MoveVerdict>
+  wouldAssetDeleteBeReferenced(assetKey: string): Effect.Effect<AssetDeleteVerdict>
+  wouldDocumentDeleteOrphanAssets(docKey: string): Effect.Effect<DocumentDeleteVerdict>
 }
 
 /**
@@ -230,14 +215,10 @@ const safeGet = (store: BlobStoreShape, key: string): Effect.Effect<Option.Optio
 
 /** Classified references of one document; missing or malformed documents yield none. */
 const documentReferences = Effect.fn("reference-graph.documentReferences")(function* (
+  store: BlobStoreShape,
+  config: CatalogRootConfig,
   docKey: string,
-): Effect.fn.Return<
-  Chunk.Chunk<ResolvedReference>,
-  never,
-  BlobStore | Context.Reference<CatalogRootConfig>
-> {
-  const store = yield* BlobStore
-  const config = yield* CatalogRoot
+): Effect.fn.Return<Chunk.Chunk<ResolvedReference>> {
   const blob = yield* safeGet(store, docKey)
   if (Option.isNone(blob)) {
     return Chunk.empty()
@@ -270,17 +251,14 @@ const documentReferences = Effect.fn("reference-graph.documentReferences")(funct
 
 /** Document keys that reference a given asset key. */
 const referencersOf = Effect.fn("reference-graph.referencersOf")(function* (
+  store: BlobStoreShape,
+  config: CatalogRootConfig,
   assetKey: string,
-): Effect.fn.Return<
-  HashSet.HashSet<string>,
-  never,
-  BlobStore | Context.Reference<CatalogRootConfig>
-> {
-  const store = yield* BlobStore
+): Effect.fn.Return<HashSet.HashSet<string>> {
   const docs = yield* BlobStore.list(store)(DOC_REGION)
   let referencers = HashSet.empty<string>()
   for (const docKey of docs) {
-    const refs = yield* documentReferences(docKey)
+    const refs = yield* documentReferences(store, config, docKey)
     const referencesAsset = Array.from(refs).some((ref) => ref.assetKey === assetKey)
     if (referencesAsset) {
       referencers = HashSet.add(referencers, docKey)
@@ -290,16 +268,14 @@ const referencersOf = Effect.fn("reference-graph.referencersOf")(function* (
 })
 
 /** Asset key → set of document keys referencing it, scanned from current storage. */
-const buildAdjacency = Effect.fn("reference-graph.buildAdjacency")(function* (): Effect.fn.Return<
-  HashMap.HashMap<string, HashSet.HashSet<string>>,
-  never,
-  BlobStore | Context.Reference<CatalogRootConfig>
-> {
-  const store = yield* BlobStore
+const buildAdjacency = Effect.fn("reference-graph.buildAdjacency")(function* (
+  store: BlobStoreShape,
+  config: CatalogRootConfig,
+): Effect.fn.Return<HashMap.HashMap<string, HashSet.HashSet<string>>> {
   const docs = yield* BlobStore.list(store)(DOC_REGION)
   let adjacency = HashMap.empty<string, HashSet.HashSet<string>>()
   for (const docKey of docs) {
-    const refs = yield* documentReferences(docKey)
+    const refs = yield* documentReferences(store, config, docKey)
     for (const ref of refs) {
       const current = HashMap.get(adjacency, ref.assetKey)
       const set = Option.isSome(current) ? current.value : HashSet.empty<string>()
@@ -311,10 +287,10 @@ const buildAdjacency = Effect.fn("reference-graph.buildAdjacency")(function* ():
 
 /** Verdict for a document move: refused when any reference resolves elsewhere from the destination. */
 const wouldMoveBreakReferences = Effect.fn("reference-graph.wouldMoveBreakReferences")(function* (
+  store: BlobStoreShape,
   docKey: string,
   destKey: string,
-): Effect.fn.Return<MoveVerdict, never, BlobStore | Context.Reference<CatalogRootConfig>> {
-  const store = yield* BlobStore
+): Effect.fn.Return<MoveVerdict> {
   const blob = yield* safeGet(store, docKey)
   if (Option.isNone(blob)) {
     return { status: "allowed" }
@@ -342,9 +318,11 @@ const wouldMoveBreakReferences = Effect.fn("reference-graph.wouldMoveBreakRefere
 /** Verdict for an asset delete: refused while any document still references it. */
 const wouldAssetDeleteBeReferenced = Effect.fn("reference-graph.wouldAssetDeleteBeReferenced")(
   function* (
+    store: BlobStoreShape,
+    config: CatalogRootConfig,
     assetKey: string,
-  ): Effect.fn.Return<AssetDeleteVerdict, never, BlobStore | Context.Reference<CatalogRootConfig>> {
-    const adjacency = yield* buildAdjacency()
+  ): Effect.fn.Return<AssetDeleteVerdict> {
+    const adjacency = yield* buildAdjacency(store, config)
     const referencers = HashMap.get(adjacency, assetKey)
     return Option.isSome(referencers) && HashSet.size(referencers.value) > 0
       ? { status: "refused", referencers: Chunk.fromIterable(referencers.value) }
@@ -356,19 +334,16 @@ const wouldAssetDeleteBeReferenced = Effect.fn("reference-graph.wouldAssetDelete
 const wouldDocumentDeleteOrphanAssets = Effect.fn(
   "reference-graph.wouldDocumentDeleteOrphanAssets",
 )(function* (
+  store: BlobStoreShape,
+  config: CatalogRootConfig,
   docKey: string,
-): Effect.fn.Return<
-  DocumentDeleteVerdict,
-  never,
-  BlobStore | Context.Reference<CatalogRootConfig>
-> {
-  const store = yield* BlobStore
+): Effect.fn.Return<DocumentDeleteVerdict> {
   const docs = yield* BlobStore.list(store)(DOC_REGION)
 
   // Resolve each document's referenced asset keys (Effect pass).
   let docRefs = HashMap.empty<string, ReadonlyArray<string>>()
   for (const doc of docs) {
-    const refs = yield* documentReferences(doc)
+    const refs = yield* documentReferences(store, config, doc)
     docRefs = HashMap.set(
       docRefs,
       doc,
@@ -430,14 +405,17 @@ export class ReferenceGraph extends Context.Service<ReferenceGraph, ReferenceGra
   static readonly layer = Layer.effect(
     ReferenceGraph,
     Effect.gen(function* () {
-      yield* BlobStore
-      yield* CatalogRoot
+      const store = yield* BlobStore
+      const config = yield* CatalogRoot
       return ReferenceGraph.of({
-        documentReferences,
-        referencersOf,
-        wouldMoveBreakReferences,
-        wouldAssetDeleteBeReferenced,
-        wouldDocumentDeleteOrphanAssets,
+        documentReferences: (docKey) => documentReferences(store, config, docKey),
+        referencersOf: (assetKey) => referencersOf(store, config, assetKey),
+        wouldMoveBreakReferences: (docKey, destKey) =>
+          wouldMoveBreakReferences(store, docKey, destKey),
+        wouldAssetDeleteBeReferenced: (assetKey) =>
+          wouldAssetDeleteBeReferenced(store, config, assetKey),
+        wouldDocumentDeleteOrphanAssets: (docKey) =>
+          wouldDocumentDeleteOrphanAssets(store, config, docKey),
       })
     }),
   )

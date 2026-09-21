@@ -30,15 +30,15 @@ cd <project>            # where effectivity.config.ts lives (or run from a subdi
 effectivity --help      # or: bun x effectivity
 ```
 
-| command                        | effect                                                                    |
-| ------------------------------ | ------------------------------------------------------------------------- |
+| command                        | effect                                                                      |
+| ------------------------------ | --------------------------------------------------------------------------- |
 | `effectivity sync`             | regenerate `wrangler.jsonc` + `src/runtime.generated.ts` through the plugin |
-| `effectivity dev [--port N]`   | sync, write `.dev.vars` secrets, start the Vite dev server (workerd HMR)   |
-| `effectivity build`            | sync + `vite build` (worker bundle)                                        |
-| `effectivity preview`          | `vite preview` for the built bundle                                        |
-| `effectivity seed [--url URL]` | run the project's `scripts/seed.sh` against a running worker               |
-| `effectivity init [dir]`       | write a starter `effectivity.config.ts` (never overwrites) and sync        |
-| `effectivity <plugin> <cmd>`   | run a command contributed by a registered plugin                           |
+| `effectivity dev [--port N]`   | sync, write `.dev.vars` secrets, start the Vite dev server (workerd HMR)    |
+| `effectivity build`            | sync + `vite build` (worker bundle)                                         |
+| `effectivity preview`          | `vite preview` for the built bundle                                         |
+| `effectivity seed [--url URL]` | run the project's `scripts/seed.sh` against a running worker                |
+| `effectivity init [dir]`       | write a starter `effectivity.config.ts` (never overwrites) and sync         |
+| `effectivity <plugin> <cmd>`   | run a command contributed by a registered plugin                            |
 
 Every registered plugin also appears as a command group named after its
 registration, so contributed commands are namespaced (`effectivity alpha hello`).
@@ -103,7 +103,12 @@ control.
 A registration is plain data. The engine keeps the list order and iterates it.
 
 ```ts
-import { ProjectRoot, Sync, type HostServicesShape, type PluginRegistration } from "@effectivity/cli"
+import {
+  ProjectRoot,
+  Sync,
+  type HostServicesShape,
+  type PluginRegistration,
+} from "@effectivity/cli"
 import { Effect, Layer } from "effect"
 
 export const myPlugin = (): PluginRegistration<Sync> => ({
@@ -112,10 +117,10 @@ export const myPlugin = (): PluginRegistration<Sync> => ({
     Layer.succeed(
       Sync,
       Sync.of({
-        sync: Effect.fn("myPlugin.sync")(function* () {
+        sync: Effect.gen(function* () {
           const root = yield* ProjectRoot
           yield* Effect.log(`syncing ${root}`)
-        }),
+        }).pipe(Effect.withSpan("myPlugin.sync")),
       }),
     ),
   commands: [],

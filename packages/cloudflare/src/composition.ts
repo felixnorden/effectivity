@@ -140,11 +140,7 @@ const makeAppHandler = (
     ),
     { disableLogger: true },
   )
-  // Boundary cast: the declared handler type carries FileSystem/Path from
-  // HttpApiBuilder's per-endpoint typing, but the runtime path never touches
-  // them (proven by the pool suite and wrangler dev smoke). The Worker fetch
-  // loop has no such services to provide.
-  return { handler: handler as (request: Request) => Promise<Response> }
+  return { handler }
 }
 
 /** Memoize an async starter: the first call starts the work, every later call

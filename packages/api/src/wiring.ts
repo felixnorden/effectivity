@@ -43,5 +43,5 @@ export const Wiring = {
           ),
         ),
       ),
-    ) as Layer.Layer<CoreProvides | Parse, never, Bucket>,
+    ),
 }

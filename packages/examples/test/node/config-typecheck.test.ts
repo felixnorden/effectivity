@@ -22,16 +22,20 @@ const runTsc = (project: string): { readonly status: number; readonly output: st
     })
     return { status: 0, output }
   } catch (error) {
-    const failure = error as { readonly status?: number; readonly stdout?: string; readonly stderr?: string }
+    const failure = error as {
+      readonly status?: number
+      readonly stdout?: string
+      readonly stderr?: string
+    }
     return { status: failure.status ?? 1, output: `${failure.stdout ?? ""}${failure.stderr ?? ""}` }
   }
 }
 
 describe("consumer config type-check coverage", () => {
   it("the config-check project includes the consumer config file", () => {
-    const project = JSON.parse(
-      readFileSync(join(packageRoot, "tsconfig.config.json"), "utf8"),
-    ) as { readonly include?: ReadonlyArray<string> }
+    const project = JSON.parse(readFileSync(join(packageRoot, "tsconfig.config.json"), "utf8")) as {
+      readonly include?: ReadonlyArray<string>
+    }
     expect(project.include).toContain("effectivity.config.ts")
   })
 

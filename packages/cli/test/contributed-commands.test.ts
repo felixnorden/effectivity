@@ -49,10 +49,10 @@ const markerRegistration = (name: string, observed: string[]): AnyPluginRegistra
     Layer.succeed(
       Sync,
       Sync.of({
-        sync: Effect.fn(`${name}.sync`)(function* () {
+        sync: Effect.gen(function* () {
           observed.push(name)
           yield* Effect.void
-        }),
+        }).pipe(Effect.withSpan(`${name}.sync`)),
       }),
     ),
   commands: [
@@ -62,7 +62,7 @@ const markerRegistration = (name: string, observed: string[]): AnyPluginRegistra
       flags: [],
       handler: Effect.fn(`${name}.hello`)(function* () {
         const sync = yield* Sync
-        yield* sync.sync()
+        yield* sync.sync
       }),
     },
   ],
@@ -146,9 +146,7 @@ describe("contributed commands", () => {
 
   it.effect("a contributed command that fails reports its registration's name", () => {
     const engine = makeTestEngine([
-      commandRegistration("alpha", () =>
-        Effect.fail(new PluginError({ message: "boom" })),
-      ),
+      commandRegistration("alpha", () => Effect.fail(new PluginError({ message: "boom" }))),
     ])
     return Effect.gen(function* () {
       const failure = yield* run(engine, ["alpha", "hello"]).pipe(Effect.flip)

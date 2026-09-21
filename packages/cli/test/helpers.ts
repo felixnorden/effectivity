@@ -7,14 +7,7 @@
 import { Console, Context, Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effect"
 import { ChildProcessSpawner } from "effect/unstable/process"
 import type { Engine } from "../src/engine.ts"
-import {
-  Build,
-  Dev,
-  type HostServicesShape,
-  Preview,
-  Seed,
-  Sync,
-} from "../src/plugin.ts"
+import { Build, Dev, type HostServicesShape, Preview, Seed, Sync } from "../src/plugin.ts"
 import type { AnyPluginRegistration } from "../src/plugin.ts"
 
 /** A Console service that collects log/error output, so help output can be asserted. */
@@ -95,10 +88,10 @@ export const recordingRegistration = (
       Layer.succeed(
         Sync,
         Sync.of({
-          sync: Effect.fn(`${name}.sync`)(function* () {
+          sync: Effect.gen(function* () {
             records.syncs.push(name)
             yield* Effect.void
-          }),
+          }).pipe(Effect.withSpan(`${name}.sync`)),
         }),
       ),
     )
@@ -121,9 +114,7 @@ export const recordingRegistration = (
       Layer.succeed(
         Build,
         Build.of({
-          build: Effect.fn(`${name}.build`)(function* () {
-            yield* Effect.void
-          }),
+          build: Effect.void.pipe(Effect.withSpan(`${name}.build`)),
         }),
       ),
     )
@@ -133,9 +124,7 @@ export const recordingRegistration = (
       Layer.succeed(
         Preview,
         Preview.of({
-          preview: Effect.fn(`${name}.preview`)(function* () {
-            yield* Effect.void
-          }),
+          preview: Effect.void.pipe(Effect.withSpan(`${name}.preview`)),
         }),
       ),
     )
@@ -155,7 +144,8 @@ export const recordingRegistration = (
   }
   return {
     name,
-    capabilities: () => layers.reduce((acc, layer) => Layer.merge(acc, layer), Layer.empty as Layer.Layer<any>),
+    capabilities: () =>
+      layers.reduce((acc, layer) => Layer.merge(acc, layer), Layer.empty as Layer.Layer<any>),
     commands: [],
   }
 }

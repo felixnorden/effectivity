@@ -1,4 +1,4 @@
-import { Chunk, Context, Effect, Option } from "effect"
+import { Chunk, Context, Effect, Layer, Option } from "effect"
 import {
   BlobStore,
   type BlobMeta,
@@ -6,13 +6,17 @@ import {
   type BlobStoreShape,
   type PutMeta,
 } from "./blob-store.ts"
-import { Catalog, type DocumentListing } from "./catalog.ts"
+import { Catalog, type CatalogShape, type DocumentListing } from "./catalog.ts"
 import { validateContent } from "./codec.ts"
 import { CatalogRoot, type CatalogRootConfig } from "./config.ts"
 import * as Error_ from "./error.ts"
-import { ChangeEvents } from "./events.ts"
-import { Naming } from "./naming.ts"
-import { ReferenceGraph, type ResolvedReference } from "./reference-graph.ts"
+import { ChangeEvents, type ChangeEventShape } from "./events.ts"
+import { Naming, type NamingShape } from "./naming.ts"
+import {
+  ReferenceGraph,
+  type ReferenceGraphShape,
+  type ResolvedReference,
+} from "./reference-graph.ts"
 
 /**
  * The typed, user-facing facade composing every other component (D3/D4/D5):
@@ -26,13 +30,19 @@ import { ReferenceGraph, type ResolvedReference } from "./reference-graph.ts"
  * removed), and there is no rollback — a mid-failure partial state is
  * reported deterministically (D4).
  */
-export type DocumentStoreDeps =
-  | BlobStore
-  | Naming
-  | Context.Reference<CatalogRootConfig>
-  | ReferenceGraph
-  | Catalog
-  | ChangeEvents
+/**
+ * The facade's layer-resolved dependencies. `DocumentStore.layer` captures
+ * these once at layer creation, so the service methods carry no requirements
+ * of their own.
+ */
+export interface DocumentStoreDeps {
+  readonly store: BlobStoreShape
+  readonly naming: NamingShape
+  readonly config: CatalogRootConfig
+  readonly refs: ReferenceGraphShape
+  readonly catalog: CatalogShape
+  readonly events: ChangeEventShape
+}
 
 /** A stored document (or asset) as bytes plus its version, read back from the seam. */
 export interface StoredBlob {
@@ -46,20 +56,16 @@ export interface DocumentStoreShape {
     bytes: Uint8Array,
   ): Effect.Effect<
     string,
-    Error_.PreconditionFailed | Error_.ValidationFailed | Error_.InvalidArgument,
-    DocumentStoreDeps
+    Error_.PreconditionFailed | Error_.ValidationFailed | Error_.InvalidArgument
   >
-  read(
-    path: string,
-  ): Effect.Effect<Option.Option<StoredBlob>, Error_.InvalidArgument, DocumentStoreDeps>
+  read(path: string): Effect.Effect<Option.Option<StoredBlob>, Error_.InvalidArgument>
   update(
     path: string,
     bytes: Uint8Array,
     opts?: { ifCurrent?: string },
   ): Effect.Effect<
     string,
-    Error_.PreconditionFailed | Error_.ValidationFailed | Error_.InvalidArgument,
-    DocumentStoreDeps
+    Error_.PreconditionFailed | Error_.ValidationFailed | Error_.InvalidArgument
   >
   move(
     from: string,
@@ -67,32 +73,27 @@ export interface DocumentStoreShape {
     opts?: { override?: boolean },
   ): Effect.Effect<
     void,
-    Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument,
-    DocumentStoreDeps
+    Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument
   >
   deleteDocument(
     path: string,
     opts?: { override?: boolean },
   ): Effect.Effect<
     void,
-    Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument,
-    DocumentStoreDeps
+    Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument
   >
   storeAsset(
     id: string,
     bytes: Uint8Array,
     opts?: { ifCurrent?: string; contentType?: string },
-  ): Effect.Effect<string, Error_.PreconditionFailed | Error_.InvalidArgument, DocumentStoreDeps>
-  getAsset(
-    id: string,
-  ): Effect.Effect<Option.Option<StoredBlob>, Error_.InvalidArgument, DocumentStoreDeps>
+  ): Effect.Effect<string, Error_.PreconditionFailed | Error_.InvalidArgument>
+  getAsset(id: string): Effect.Effect<Option.Option<StoredBlob>, Error_.InvalidArgument>
   deleteAsset(
     id: string,
     opts?: { override?: boolean },
   ): Effect.Effect<
     void,
-    Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument,
-    DocumentStoreDeps
+    Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument
   >
   renameAsset(
     from: string,
@@ -100,15 +101,12 @@ export interface DocumentStoreShape {
     opts?: { override?: boolean },
   ): Effect.Effect<
     void,
-    Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument,
-    DocumentStoreDeps
+    Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument
   >
-  listDocuments(
-    prefix: string,
-  ): Effect.Effect<Chunk.Chunk<DocumentListing>, never, DocumentStoreDeps>
+  listDocuments(prefix: string): Effect.Effect<Chunk.Chunk<DocumentListing>>
   documentReferences(
     doc: string,
-  ): Effect.Effect<Chunk.Chunk<ResolvedReference>, Error_.InvalidArgument, DocumentStoreDeps>
+  ): Effect.Effect<Chunk.Chunk<ResolvedReference>, Error_.InvalidArgument>
 }
 
 /** Byte-fidelity comparison used for the byte-identical update no-op rule (D3). */
@@ -123,21 +121,17 @@ const safeGet = (store: BlobStoreShape, key: string): Effect.Effect<Option.Optio
   })
 
 const create = Effect.fn("document-store.create")(function* (
+  deps: DocumentStoreDeps,
   path: string,
   bytes: Uint8Array,
 ): Effect.fn.Return<
   string,
-  Error_.PreconditionFailed | Error_.ValidationFailed | Error_.InvalidArgument,
-  DocumentStoreDeps
+  Error_.PreconditionFailed | Error_.ValidationFailed | Error_.InvalidArgument
 > {
-  const store = yield* BlobStore
-  const naming = yield* Naming
-  const config = yield* CatalogRoot
-  const events = yield* ChangeEvents
-  const key = yield* naming.encodeDocumentPath(path)
-  yield* validateContent(config.frontmatter, bytes)
-  const meta = yield* BlobStore.put(store)(key, bytes, { ifAbsent: true })
-  yield* events.publish({
+  const key = yield* deps.naming.encodeDocumentPath(path)
+  yield* validateContent(deps.config.frontmatter, bytes)
+  const meta = yield* deps.store.put(key, bytes, { ifAbsent: true })
+  yield* deps.events.publish({
     kind: "document",
     operation: "create",
     keys: [key],
@@ -147,31 +141,26 @@ const create = Effect.fn("document-store.create")(function* (
 })
 
 const read = Effect.fn("document-store.read")(function* (
+  deps: DocumentStoreDeps,
   path: string,
-): Effect.fn.Return<Option.Option<StoredBlob>, Error_.InvalidArgument, DocumentStoreDeps> {
-  const store = yield* BlobStore
-  const naming = yield* Naming
-  const key = yield* naming.encodeDocumentPath(path)
-  const blob = yield* safeGet(store, key)
+): Effect.fn.Return<Option.Option<StoredBlob>, Error_.InvalidArgument> {
+  const key = yield* deps.naming.encodeDocumentPath(path)
+  const blob = yield* safeGet(deps.store, key)
   return Option.map(blob, (object) => ({ bytes: object.body, version: object.version }))
 })
 
 const update = Effect.fn("document-store.update")(function* (
+  deps: DocumentStoreDeps,
   path: string,
   bytes: Uint8Array,
   opts?: { ifCurrent?: string },
 ): Effect.fn.Return<
   string,
-  Error_.PreconditionFailed | Error_.ValidationFailed | Error_.InvalidArgument,
-  DocumentStoreDeps
+  Error_.PreconditionFailed | Error_.ValidationFailed | Error_.InvalidArgument
 > {
-  const store = yield* BlobStore
-  const naming = yield* Naming
-  const config = yield* CatalogRoot
-  const events = yield* ChangeEvents
-  const key = yield* naming.encodeDocumentPath(path)
-  yield* validateContent(config.frontmatter, bytes)
-  const current = yield* safeGet(store, key)
+  const key = yield* deps.naming.encodeDocumentPath(path)
+  yield* validateContent(deps.config.frontmatter, bytes)
+  const current = yield* safeGet(deps.store, key)
   const guard: Option.Option<string> =
     opts?.ifCurrent !== undefined
       ? Option.some(opts.ifCurrent)
@@ -192,8 +181,8 @@ const update = Effect.fn("document-store.update")(function* (
   ) {
     return current.value.version // byte-identical no-op: no rewrite, no version bump (D3)
   }
-  const meta = yield* BlobStore.put(store)(key, bytes, { ifCurrent: guard.value })
-  yield* events.publish({
+  const meta = yield* deps.store.put(key, bytes, { ifCurrent: guard.value })
+  yield* deps.events.publish({
     kind: "document",
     operation: "update",
     keys: [key],
@@ -203,22 +192,18 @@ const update = Effect.fn("document-store.update")(function* (
 })
 
 const move = Effect.fn("document-store.move")(function* (
+  deps: DocumentStoreDeps,
   from: string,
   to: string,
   opts?: { override?: boolean },
 ): Effect.fn.Return<
   void,
-  Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument,
-  DocumentStoreDeps
+  Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument
 > {
-  const store = yield* BlobStore
-  const naming = yield* Naming
-  const refs = yield* ReferenceGraph
-  const events = yield* ChangeEvents
-  const fromKey = yield* naming.encodeDocumentPath(from)
-  const toKey = yield* naming.encodeDocumentPath(to)
+  const fromKey = yield* deps.naming.encodeDocumentPath(from)
+  const toKey = yield* deps.naming.encodeDocumentPath(to)
   if (!opts?.override) {
-    const verdict = yield* refs.wouldMoveBreakReferences(fromKey, toKey)
+    const verdict = yield* deps.refs.wouldMoveBreakReferences(fromKey, toKey)
     if (verdict.status === "refused") {
       return yield* new Error_.IntegrityViolation({
         reason: "move would break references",
@@ -226,7 +211,7 @@ const move = Effect.fn("document-store.move")(function* (
       })
     }
   }
-  const source = yield* safeGet(store, fromKey)
+  const source = yield* safeGet(deps.store, fromKey)
   if (Option.isNone(source)) {
     return yield* new Error_.PreconditionFailed({
       key: fromKey,
@@ -234,9 +219,9 @@ const move = Effect.fn("document-store.move")(function* (
       actual: Option.none(),
     })
   }
-  const meta = yield* BlobStore.put(store)(toKey, source.value.body, { ifAbsent: true })
-  yield* BlobStore.del(store)(fromKey)
-  yield* events.publish({
+  const meta = yield* deps.store.put(toKey, source.value.body, { ifAbsent: true })
+  yield* deps.store.del(fromKey)
+  yield* deps.events.publish({
     kind: "document",
     operation: "move",
     keys: [fromKey, toKey],
@@ -246,20 +231,16 @@ const move = Effect.fn("document-store.move")(function* (
 })
 
 const deleteDocument = Effect.fn("document-store.deleteDocument")(function* (
+  deps: DocumentStoreDeps,
   path: string,
   opts?: { override?: boolean },
 ): Effect.fn.Return<
   void,
-  Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument,
-  DocumentStoreDeps
+  Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument
 > {
-  const store = yield* BlobStore
-  const naming = yield* Naming
-  const refs = yield* ReferenceGraph
-  const events = yield* ChangeEvents
-  const key = yield* naming.encodeDocumentPath(path)
+  const key = yield* deps.naming.encodeDocumentPath(path)
   if (!opts?.override) {
-    const verdict = yield* refs.wouldDocumentDeleteOrphanAssets(key)
+    const verdict = yield* deps.refs.wouldDocumentDeleteOrphanAssets(key)
     if (verdict.status === "refused") {
       return yield* new Error_.IntegrityViolation({
         reason: "document delete would orphan assets",
@@ -267,12 +248,12 @@ const deleteDocument = Effect.fn("document-store.deleteDocument")(function* (
       })
     }
   }
-  const current = yield* safeGet(store, key)
+  const current = yield* safeGet(deps.store, key)
   if (Option.isNone(current)) {
     return undefined // already absent: idempotent no-op
   }
-  yield* BlobStore.del(store)(key)
-  yield* events.publish({
+  yield* deps.store.del(key)
+  yield* deps.events.publish({
     kind: "document",
     operation: "delete",
     keys: [key],
@@ -282,23 +263,21 @@ const deleteDocument = Effect.fn("document-store.deleteDocument")(function* (
 })
 
 const storeAsset = Effect.fn("document-store.storeAsset")(function* (
+  deps: DocumentStoreDeps,
   id: string,
   bytes: Uint8Array,
   opts?: { ifCurrent?: string; contentType?: string },
-): Effect.fn.Return<string, Error_.PreconditionFailed | Error_.InvalidArgument, DocumentStoreDeps> {
-  const store = yield* BlobStore
-  const naming = yield* Naming
-  const events = yield* ChangeEvents
-  const key = yield* naming.encodeAssetKey(id)
+): Effect.fn.Return<string, Error_.PreconditionFailed | Error_.InvalidArgument> {
+  const key = yield* deps.naming.encodeAssetKey(id)
   const meta: PutMeta = opts?.contentType === undefined ? {} : { contentType: opts.contentType }
   const expected = opts?.ifCurrent
   let blobMeta: BlobMeta
   if (expected === undefined) {
     // Create-only (If-None-Match): store when absent, refuse when present.
-    blobMeta = yield* BlobStore.put(store)(key, bytes, { ifAbsent: true }, meta)
+    blobMeta = yield* deps.store.put(key, bytes, { ifAbsent: true }, meta)
   } else {
     // Conditional update (If-Match): the caller's version must be current.
-    const current = yield* safeGet(store, key)
+    const current = yield* safeGet(deps.store, key)
     if (Option.isNone(current)) {
       return yield* new Error_.PreconditionFailed({
         key,
@@ -309,9 +288,9 @@ const storeAsset = Effect.fn("document-store.storeAsset")(function* (
     if (expected === current.value.version && bytesEqual(current.value.body, bytes)) {
       return current.value.version // byte-identical no-op: no rewrite, no version bump (D3)
     }
-    blobMeta = yield* BlobStore.put(store)(key, bytes, { ifCurrent: expected }, meta)
+    blobMeta = yield* deps.store.put(key, bytes, { ifCurrent: expected }, meta)
   }
-  yield* events.publish({
+  yield* deps.events.publish({
     kind: "asset",
     operation: "store",
     keys: [key],
@@ -321,30 +300,25 @@ const storeAsset = Effect.fn("document-store.storeAsset")(function* (
 })
 
 const getAsset = Effect.fn("document-store.getAsset")(function* (
+  deps: DocumentStoreDeps,
   id: string,
-): Effect.fn.Return<Option.Option<StoredBlob>, Error_.InvalidArgument, DocumentStoreDeps> {
-  const store = yield* BlobStore
-  const naming = yield* Naming
-  const key = yield* naming.encodeAssetKey(id)
-  const blob = yield* safeGet(store, key)
+): Effect.fn.Return<Option.Option<StoredBlob>, Error_.InvalidArgument> {
+  const key = yield* deps.naming.encodeAssetKey(id)
+  const blob = yield* safeGet(deps.store, key)
   return Option.map(blob, (object) => ({ bytes: object.body, version: object.version }))
 })
 
 const deleteAsset = Effect.fn("document-store.deleteAsset")(function* (
+  deps: DocumentStoreDeps,
   id: string,
   opts?: { override?: boolean },
 ): Effect.fn.Return<
   void,
-  Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument,
-  DocumentStoreDeps
+  Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument
 > {
-  const store = yield* BlobStore
-  const naming = yield* Naming
-  const refs = yield* ReferenceGraph
-  const events = yield* ChangeEvents
-  const key = yield* naming.encodeAssetKey(id)
+  const key = yield* deps.naming.encodeAssetKey(id)
   if (!opts?.override) {
-    const verdict = yield* refs.wouldAssetDeleteBeReferenced(key)
+    const verdict = yield* deps.refs.wouldAssetDeleteBeReferenced(key)
     if (verdict.status === "refused") {
       return yield* new Error_.IntegrityViolation({
         reason: "asset delete still referenced",
@@ -352,12 +326,12 @@ const deleteAsset = Effect.fn("document-store.deleteAsset")(function* (
       })
     }
   }
-  const current = yield* safeGet(store, key)
+  const current = yield* safeGet(deps.store, key)
   if (Option.isNone(current)) {
     return undefined // already absent: idempotent no-op
   }
-  yield* BlobStore.del(store)(key)
-  yield* events.publish({
+  yield* deps.store.del(key)
+  yield* deps.events.publish({
     kind: "asset",
     operation: "delete",
     keys: [key],
@@ -367,22 +341,18 @@ const deleteAsset = Effect.fn("document-store.deleteAsset")(function* (
 })
 
 const renameAsset = Effect.fn("document-store.renameAsset")(function* (
+  deps: DocumentStoreDeps,
   from: string,
   to: string,
   opts?: { override?: boolean },
 ): Effect.fn.Return<
   void,
-  Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument,
-  DocumentStoreDeps
+  Error_.PreconditionFailed | Error_.IntegrityViolation | Error_.InvalidArgument
 > {
-  const store = yield* BlobStore
-  const naming = yield* Naming
-  const refs = yield* ReferenceGraph
-  const events = yield* ChangeEvents
-  const fromKey = yield* naming.encodeAssetKey(from)
-  const toKey = yield* naming.encodeAssetKey(to)
+  const fromKey = yield* deps.naming.encodeAssetKey(from)
+  const toKey = yield* deps.naming.encodeAssetKey(to)
   if (!opts?.override) {
-    const verdict = yield* refs.wouldAssetDeleteBeReferenced(fromKey)
+    const verdict = yield* deps.refs.wouldAssetDeleteBeReferenced(fromKey)
     if (verdict.status === "refused") {
       return yield* new Error_.IntegrityViolation({
         reason: "asset rename still referenced",
@@ -390,7 +360,7 @@ const renameAsset = Effect.fn("document-store.renameAsset")(function* (
       })
     }
   }
-  const source = yield* safeGet(store, fromKey)
+  const source = yield* safeGet(deps.store, fromKey)
   if (Option.isNone(source)) {
     return yield* new Error_.PreconditionFailed({
       key: fromKey,
@@ -398,9 +368,9 @@ const renameAsset = Effect.fn("document-store.renameAsset")(function* (
       actual: Option.none(),
     })
   }
-  const meta = yield* BlobStore.put(store)(toKey, source.value.body, { ifAbsent: true })
-  yield* BlobStore.del(store)(fromKey)
-  yield* events.publish({
+  const meta = yield* deps.store.put(toKey, source.value.body, { ifAbsent: true })
+  yield* deps.store.del(fromKey)
+  yield* deps.events.publish({
     kind: "asset",
     operation: "rename",
     keys: [fromKey, toKey],
@@ -410,48 +380,52 @@ const renameAsset = Effect.fn("document-store.renameAsset")(function* (
 })
 
 const listDocuments = Effect.fn("document-store.listDocuments")(function* (
+  deps: DocumentStoreDeps,
   prefix: string,
-): Effect.fn.Return<Chunk.Chunk<DocumentListing>, never, DocumentStoreDeps> {
-  const catalog = yield* Catalog
-  return yield* catalog.listDocuments(prefix)
+): Effect.fn.Return<Chunk.Chunk<DocumentListing>> {
+  return yield* deps.catalog.listDocuments(prefix)
 })
 
 const documentReferences = Effect.fn("document-store.documentReferences")(function* (
+  deps: DocumentStoreDeps,
   doc: string,
-): Effect.fn.Return<Chunk.Chunk<ResolvedReference>, Error_.InvalidArgument, DocumentStoreDeps> {
-  const naming = yield* Naming
-  const refs = yield* ReferenceGraph
-  const key = yield* naming.encodeDocumentPath(doc)
-  return yield* refs.documentReferences(key)
+): Effect.fn.Return<Chunk.Chunk<ResolvedReference>, Error_.InvalidArgument> {
+  const key = yield* deps.naming.encodeDocumentPath(doc)
+  return yield* deps.refs.documentReferences(key)
 })
 
 /**
- * Concrete store shape with the caller's frontmatter model `F`. The schema is
- * read from `CatalogRoot` at runtime; `F` only types the read result, and the
- * single cast below is sound because `Core.layer` supplies a `Schema<F>`.
+ * The facade service. `DocumentStore.layer` resolves every dependency once at
+ * layer creation and closes over it, so the service methods carry no
+ * requirements — callers depend on the facade, not on its implementation.
  */
-/** The concrete store shape; all methods pull their services from the context. */
-export const documentStoreShape: DocumentStoreShape = {
-  create,
-  read,
-  update,
-  move,
-  deleteDocument,
-  storeAsset,
-  getAsset,
-  deleteAsset,
-  renameAsset,
-  listDocuments,
-  documentReferences,
-}
-
-/**
- * The facade service key: `yield* DocumentStore` resolves to the concrete
- * shape. Storage and validation are separate concerns: mutations are
- * validated against the wired schema inside the store, while typed parsing of
- * read bytes is a caller-side codec call (`parseDocument(schema, bytes)`),
- * generic over the schema the caller already owns.
- */
-export const DocumentStore = Context.Service<DocumentStoreShape>(
+export class DocumentStore extends Context.Service<DocumentStore, DocumentStoreShape>()(
   "effectivity/document-store/DocumentStore",
-)
+) {
+  static readonly layer = Layer.effect(
+    DocumentStore,
+    Effect.gen(function* () {
+      const deps: DocumentStoreDeps = {
+        store: yield* BlobStore,
+        naming: yield* Naming,
+        config: yield* CatalogRoot,
+        refs: yield* ReferenceGraph,
+        catalog: yield* Catalog,
+        events: yield* ChangeEvents,
+      }
+      return DocumentStore.of({
+        create: (path, bytes) => create(deps, path, bytes),
+        read: (path) => read(deps, path),
+        update: (path, bytes, opts) => update(deps, path, bytes, opts),
+        move: (from, to, opts) => move(deps, from, to, opts),
+        deleteDocument: (path, opts) => deleteDocument(deps, path, opts),
+        storeAsset: (id, bytes, opts) => storeAsset(deps, id, bytes, opts),
+        getAsset: (id) => getAsset(deps, id),
+        deleteAsset: (id, opts) => deleteAsset(deps, id, opts),
+        renameAsset: (from, to, opts) => renameAsset(deps, from, to, opts),
+        listDocuments: (prefix) => listDocuments(deps, prefix),
+        documentReferences: (doc) => documentReferences(deps, doc),
+      })
+    }),
+  )
+}

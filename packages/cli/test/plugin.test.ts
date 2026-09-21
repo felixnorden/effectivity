@@ -22,18 +22,18 @@ describe("capability tags", () => {
 describe("PluginRegistration", () => {
   it.effect("a registration provides exactly the capabilities it declares", () =>
     Effect.gen(function* () {
-      const registration = recordingRegistration(
-        "alpha",
-        { syncs: [], ports: [], urls: [] },
-        ["sync", "seed"],
-      )
+      const registration = recordingRegistration("alpha", { syncs: [], ports: [], urls: [] }, [
+        "sync",
+        "seed",
+      ])
       const context = yield* Layer.build(registration.capabilities(makeTestHost()))
       expect(Option.isSome(Context.getOption(context, Sync))).toBe(true)
       expect(Option.isSome(Context.getOption(context, Seed))).toBe(true)
       expect(Option.isNone(Context.getOption(context, Dev))).toBe(true)
       expect(Option.isNone(Context.getOption(context, Build))).toBe(true)
       expect(Option.isNone(Context.getOption(context, Preview))).toBe(true)
-    }))
+    }),
+  )
 
   it("a registration's capability layer declares no requirements", () => {
     const registration = recordingRegistration("alpha", { syncs: [], ports: [], urls: [] })
@@ -47,11 +47,13 @@ describe("ProjectRoot", () => {
     Effect.gen(function* () {
       const root = yield* ProjectRoot
       expect(root).toBe(process.cwd())
-    }))
+    }),
+  )
 
   it.effect("is provided from a layer when the engine sets a root", () =>
     Effect.gen(function* () {
       const root = yield* ProjectRoot
       expect(root).toBe("/tmp")
-    }).pipe(Effect.provide(Layer.succeed(ProjectRoot, "/tmp"))))
+    }).pipe(Effect.provide(Layer.succeed(ProjectRoot, "/tmp"))),
+  )
 })

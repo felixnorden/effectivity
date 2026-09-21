@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Option } from "effect"
-import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
+import { HttpServerRequest } from "effect/unstable/http"
 import { HttpApiMiddleware } from "effect/unstable/httpapi"
 import { AuthenticationService, type AuthIdentity } from "../auth-service.ts"
 import * as ApiError from "../error.ts"
@@ -22,22 +22,19 @@ export class AuthGate extends HttpApiMiddleware.Service<
   {
     provides: CurrentIdentity
     requires: AuthenticationService
-    error: ApiError.Unauthorized
   }
->()("effectivity/api/AuthGate", {}) {}
+>()("effectivity/api/AuthGate", { error: ApiError.Unauthorized }) {}
 
 /** Implementation of {@link AuthGate}: consult the auth service per request. */
-// The single boundary cast: the rc's middleware effect algebra is too noisy to
-// thread end-to-end here; the runtime shape (request in context, identity
-// provided, Unauthorized on failure) is fixed by the code below.
 export const AuthGateLayer = Layer.effect(
   AuthGate,
   Effect.gen(function* () {
     const auth = yield* AuthenticationService
-    const gate = (
-      httpEffect: Effect.Effect<HttpServerResponse.HttpServerResponse, unknown, unknown>,
-      _options: unknown,
-    ): Effect.Effect<HttpServerResponse.HttpServerResponse, unknown, unknown> =>
+    const gate: HttpApiMiddleware.HttpApiMiddleware<
+      CurrentIdentity,
+      typeof ApiError.Unauthorized,
+      AuthenticationService
+    > = (httpEffect, _options) =>
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest
         const identity = yield* auth
@@ -51,9 +48,5 @@ export const AuthGateLayer = Layer.effect(
         return yield* httpEffect.pipe(Effect.provideService(CurrentIdentity, identity.value))
       })
     return gate
-  }) as unknown as Effect.Effect<
-    HttpApiMiddleware.HttpApiMiddleware<CurrentIdentity, never, AuthenticationService>,
-    never,
-    AuthenticationService
-  >,
+  }),
 )

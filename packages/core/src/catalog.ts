@@ -28,23 +28,9 @@ export interface DocumentListing {
 }
 
 export interface CatalogShape {
-  listDocuments(
-    prefix: string,
-  ): Effect.Effect<
-    Chunk.Chunk<DocumentListing>,
-    never,
-    BlobStore | Context.Reference<CatalogRootConfig>
-  >
-  listAssets(
-    prefix: string,
-  ): Effect.Effect<Chunk.Chunk<string>, never, BlobStore | Context.Reference<CatalogRootConfig>>
-  derivedMetadata(
-    docKey: string,
-  ): Effect.Effect<
-    Option.Option<DerivedMetadata>,
-    never,
-    BlobStore | Context.Reference<CatalogRootConfig>
-  >
+  listDocuments(prefix: string): Effect.Effect<Chunk.Chunk<DocumentListing>>
+  listAssets(prefix: string): Effect.Effect<Chunk.Chunk<string>>
+  derivedMetadata(docKey: string): Effect.Effect<Option.Option<DerivedMetadata>>
 }
 
 /** The filename without its final extension; extension-less names pass through. */
@@ -92,14 +78,10 @@ const documentBody = (
   })
 
 const listDocuments = Effect.fn("catalog.listDocuments")(function* (
+  store: BlobStoreShape,
+  config: CatalogRootConfig,
   prefix: string,
-): Effect.fn.Return<
-  Chunk.Chunk<DocumentListing>,
-  never,
-  BlobStore | Context.Reference<CatalogRootConfig>
-> {
-  const store = yield* BlobStore
-  const config = yield* CatalogRoot
+): Effect.fn.Return<Chunk.Chunk<DocumentListing>> {
   const keys = yield* BlobStore.list(store)(prefix)
   const listings: Array<DocumentListing> = []
   for (const key of keys) {
@@ -113,21 +95,17 @@ const listDocuments = Effect.fn("catalog.listDocuments")(function* (
 })
 
 const listAssets = Effect.fn("catalog.listAssets")(function* (
+  store: BlobStoreShape,
   prefix: string,
-): Effect.fn.Return<Chunk.Chunk<string>, never, BlobStore | Context.Reference<CatalogRootConfig>> {
-  const store = yield* BlobStore
+): Effect.fn.Return<Chunk.Chunk<string>> {
   return yield* BlobStore.list(store)(prefix)
 })
 
 const derivedMetadata = Effect.fn("catalog.derivedMetadata")(function* (
+  store: BlobStoreShape,
+  config: CatalogRootConfig,
   docKey: string,
-): Effect.fn.Return<
-  Option.Option<DerivedMetadata>,
-  never,
-  BlobStore | Context.Reference<CatalogRootConfig>
-> {
-  const store = yield* BlobStore
-  const config = yield* CatalogRoot
+): Effect.fn.Return<Option.Option<DerivedMetadata>> {
   const body = yield* documentBody(store, docKey, config.frontmatter)
   return Option.map(body, (text) => deriveMetadata(docKey, text))
 })
@@ -138,9 +116,13 @@ export class Catalog extends Context.Service<Catalog, CatalogShape>()(
   static readonly layer = Layer.effect(
     Catalog,
     Effect.gen(function* () {
-      yield* BlobStore
-      yield* CatalogRoot
-      return Catalog.of({ listDocuments, listAssets, derivedMetadata })
+      const store = yield* BlobStore
+      const config = yield* CatalogRoot
+      return Catalog.of({
+        listDocuments: (prefix) => listDocuments(store, config, prefix),
+        listAssets: (prefix) => listAssets(store, prefix),
+        derivedMetadata: (docKey) => derivedMetadata(store, config, docKey),
+      })
     }),
   )
 }

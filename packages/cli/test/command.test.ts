@@ -9,7 +9,12 @@ import { Cause, Effect, Layer } from "effect"
 import { CliError, Command } from "effect/unstable/cli"
 import { buildCli } from "../src/command.ts"
 import { type Engine, engineLayer } from "../src/engine.ts"
-import { makeCliTestLayer, makeTestEngine, type Recording, recordingRegistration } from "./helpers.ts"
+import {
+  makeCliTestLayer,
+  makeTestEngine,
+  type Recording,
+  recordingRegistration,
+} from "./helpers.ts"
 
 const emptyRecords = (): Recording => ({ syncs: [], ports: [], urls: [] })
 

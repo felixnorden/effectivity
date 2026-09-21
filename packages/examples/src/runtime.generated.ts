@@ -8,14 +8,14 @@
  * baked value via AUTH_URL / AUTH_SECRET / AUTH_ADMIN_EMAIL vars.
  */
 export const settings = {
-  "catalog": {
-    "root": "cms"
+  catalog: {
+    root: "cms",
   },
-  "auth": {
-    "url": "http://localhost:8787",
-    "secret": "dev-secret-0123456789abcdef0123456789abcdef",
-    "admin": {
-      "email": "admin@effectivity.local"
-    }
-  }
+  auth: {
+    url: "http://localhost:8787",
+    secret: "dev-secret-0123456789abcdef0123456789abcdef",
+    admin: {
+      email: "admin@effectivity.local",
+    },
+  },
 } as const

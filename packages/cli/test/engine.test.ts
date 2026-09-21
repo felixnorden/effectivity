@@ -106,7 +106,8 @@ describe("engineLayer", () => {
     Effect.gen(function* () {
       const root = yield* ProjectRoot
       expect(root).toBe("/tmp/proj")
-    }).pipe(Effect.provide(engineLayer(makeTestEngine([], makeTestHost(), "/tmp/proj")))))
+    }).pipe(Effect.provide(engineLayer(makeTestEngine([], makeTestHost(), "/tmp/proj")))),
+  )
 })
 
 describe("dispatch", () => {
@@ -117,7 +118,7 @@ describe("dispatch", () => {
       recordingRegistration("beta", records, ["sync"]),
     ])
     return Effect.gen(function* () {
-      yield* dispatch(engine, Sync, "sync", (capability) => capability.sync())
+      yield* dispatch(engine, Sync, "sync", (capability) => capability.sync)
       expect(records.syncs).toEqual(["beta"])
     })
   })
@@ -161,10 +162,8 @@ describe("boot", () => {
   it("rejects a nameless registration, naming its position", async () => {
     const dir = await tempDir()
     try {
-      await writeConfig(dir, '{ capabilities: () => null, commands: [] }')
-      const failure = await Effect.runPromise(
-        withHost(boot(undefined, dir)).pipe(Effect.flip),
-      )
+      await writeConfig(dir, "{ capabilities: () => null, commands: [] }")
+      const failure = await Effect.runPromise(withHost(boot(undefined, dir)).pipe(Effect.flip))
       expect(failure.message).toContain("position 0")
       expect(failure.message.toLowerCase()).toContain("name")
     } finally {
@@ -180,9 +179,7 @@ describe("boot", () => {
         '{ name: "alpha", capabilities: () => null, commands: [] }, ' +
           '{ name: "alpha", capabilities: () => null, commands: [] }',
       )
-      const failure = await Effect.runPromise(
-        withHost(boot(undefined, dir)).pipe(Effect.flip),
-      )
+      const failure = await Effect.runPromise(withHost(boot(undefined, dir)).pipe(Effect.flip))
       expect(failure.message).toContain("alpha")
       expect(failure.message).toContain("positions 0 and 1")
     } finally {

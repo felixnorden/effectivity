@@ -14,12 +14,8 @@ import { makeIdentity } from "./identity.ts"
  */
 
 /** Adapt the effect Headers record (indexable by lowercase name) to the native shape better-auth reads. */
-const toNativeHeaders = (record: Record<string, string>): unknown => {
-  const native = new (
-    globalThis as unknown as {
-      Headers: { new (): { set(name: string, value: string): void } }
-    }
-  ).Headers()
+const toNativeHeaders = (record: Record<string, string>): Headers => {
+  const native = new Headers()
   for (const [name, value] of Object.entries(record)) {
     native.set(name, value)
   }
@@ -27,7 +23,7 @@ const toNativeHeaders = (record: Record<string, string>): unknown => {
 }
 
 /** The role of a session user; anything not exactly "admin" is a plain user. */
-const roleOf = (user: { role?: string }): AuthIdentity["role"] =>
+const roleOf = (user: { role?: string | null }): AuthIdentity["role"] =>
   user.role === "admin" ? "admin" : "user"
 
 /** Resolve the identity for one request, or none when unauthenticated. */
@@ -35,7 +31,7 @@ const authenticate = (identity: ReturnType<typeof makeIdentity>) =>
   Effect.fn("auth.authenticate")(function* (
     request: HttpServerRequest.HttpServerRequest,
   ): Effect.fn.Return<Option.Option<AuthIdentity>, AuthFailure> {
-    const headers = request.headers as Record<string, string>
+    const headers = request.headers
     const session = yield* Effect.tryPromise({
       try: async () => {
         // API keys verify first (graceful `valid: false`); only a valid key
@@ -48,9 +44,7 @@ const authenticate = (identity: ReturnType<typeof makeIdentity>) =>
           }
         }
         return identity.api.getSession({
-          // Single boundary cast: the runtime only needs the native header
-          // surface; the rc-pinned better-auth types are not ambient here.
-          headers: toNativeHeaders(headers) as never,
+          headers: toNativeHeaders(headers),
         })
       },
       catch: (error) =>
@@ -63,7 +57,7 @@ const authenticate = (identity: ReturnType<typeof makeIdentity>) =>
     }
     return Option.some({
       id: session.user.id,
-      role: roleOf(session.user as { role?: string }),
+      role: roleOf(session.user),
     })
   })
 

@@ -1,5 +1,4 @@
-import { Layer } from "effect"
-import { Etag, HttpPlatform, HttpRouter } from "effect/unstable/http"
+import { FileSystem, Layer, Path } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import type { BlobStore, CatalogRootConfig } from "@effectivity/core"
 import { Api } from "./api.ts"
@@ -26,11 +25,7 @@ export const App = {
     blobStoreLayer: Layer.Layer<BlobStore, never, Bucket>,
     config: CatalogRootConfig,
     authLayer: Layer.Layer<AuthenticationService, never, Bucket>,
-  ): Layer.Layer<
-    HttpRouter.HttpRouter | Etag.Generator | HttpPlatform.HttpPlatform,
-    never,
-    Bucket
-  > =>
+  ) =>
     HttpApiBuilder.layer(Api, { openapiPath: "/openapi.json" }).pipe(
       Layer.provide(DocumentsApiHandlers),
       Layer.provide(AssetsApiHandlers),
@@ -39,9 +34,11 @@ export const App = {
       Layer.provide(AuthGateLayer),
       Layer.provide(authLayer),
       Layer.provide(Wiring.layer(blobStoreLayer, config)),
-    ) as Layer.Layer<
-      HttpRouter.HttpRouter | Etag.Generator | HttpPlatform.HttpPlatform,
-      never,
-      Bucket
-    >,
+      // `HttpApiBuilder.layer` carries a `FileSystem | Path` requirement for its
+      // file-response code path, even though no endpoint serves files. Satisfy
+      // it here so the app layer needs nothing but `HttpRouter` + `Bucket`:
+      // the no-op filesystem fails loudly if a future endpoint reaches it.
+      Layer.provide(FileSystem.layerNoop({})),
+      Layer.provide(Path.layer),
+    ),
 }

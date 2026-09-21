@@ -54,7 +54,7 @@ export class Reference extends Schema.Struct({
   asset: Schema.String,
   url: Schema.String,
   status: Schema.Literals(["present", "dangling", "wrong-typed"] as const),
-  sourceLine: Schema.optional(Schema.Number),
+  sourceLine: Schema.optional(Schema.Finite),
 }) {}
 
 /** One document's classified image references from the reference-graph read model. */

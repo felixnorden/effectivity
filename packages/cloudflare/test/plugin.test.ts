@@ -58,7 +58,8 @@ const fakeSpawner = (spawns: SpawnRecord[], exitCode = 0) =>
  */
 const fakeFilesystem = (writes: Map<string, string>, seedScript = true) =>
   FileSystem.layerNoop({
-    exists: (path) => Effect.succeed(writes.has(path) || (seedScript && path.endsWith("/scripts/seed.sh"))),
+    exists: (path) =>
+      Effect.succeed(writes.has(path) || (seedScript && path.endsWith("/scripts/seed.sh"))),
     makeDirectory: () => Effect.void,
     readFileString: (path) => Effect.succeed(writes.get(path) ?? ""),
     writeFileString: (path, data) =>
@@ -103,19 +104,21 @@ const testEngine = (
 })
 
 /** Run a capability from the engine, with the project root in the run context. */
-const runCapability = <Identifier, Shape, A>(
+const runCapability = <Identifier, Shape>(
   engine: Engine,
   tag: Context.Key<Identifier, Shape>,
   name: string,
-  run: (service: Shape) => Effect.Effect<A, PluginError>,
-): Effect.Effect<A, PluginError, Scope.Scope> =>
-  dispatch(engine, tag, name, run).pipe(Effect.provide(Layer.succeed(ProjectRoot, engine.projectRoot)))
+  run: (service: Shape) => Effect.Effect<void, PluginError>,
+): Effect.Effect<void, PluginError, Scope.Scope> =>
+  dispatch(engine, tag, name, run).pipe(
+    Effect.provide(Layer.succeed(ProjectRoot, engine.projectRoot)),
+  )
 
 describe("cloudflarePlugin sync", () => {
   it.effect("writes runtime.generated.ts with settings and no secrets", () => {
     const writes = new Map<string, string>()
     return Effect.gen(function* () {
-      yield* runCapability(testEngine(cfg, [], writes), Sync, "sync", (c) => c.sync())
+      yield* runCapability(testEngine(cfg, [], writes), Sync, "sync", (c) => c.sync)
 
       const module = writes.get("/tmp/proj/src/runtime.generated.ts")!
       expect(module).toContain('"root": "docs"')
@@ -130,7 +133,7 @@ describe("cloudflarePlugin sync", () => {
   it.effect("writes wrangler.jsonc with bindings only", () => {
     const writes = new Map<string, string>()
     return Effect.gen(function* () {
-      yield* runCapability(testEngine(cfg, [], writes), Sync, "sync", (c) => c.sync())
+      yield* runCapability(testEngine(cfg, [], writes), Sync, "sync", (c) => c.sync)
 
       const raw = writes.get("/tmp/proj/wrangler.jsonc")!
       // Strip // comments (the emitted header) and parse the rest.
@@ -145,7 +148,11 @@ describe("cloudflarePlugin sync", () => {
       expect(parsed.main).toBe("src/index.ts")
       expect(parsed.r2_buckets).toEqual([{ binding: "BUCKET", bucket_name: "test-bucket" }])
       expect(parsed.d1_databases).toEqual([
-        { binding: "DB", database_name: "test-auth", database_id: "00000000-0000-0000-0000-000000000000" },
+        {
+          binding: "DB",
+          database_name: "test-auth",
+          database_id: "00000000-0000-0000-0000-000000000000",
+        },
       ])
       expect(parsed).not.toHaveProperty("vars")
     })
@@ -155,7 +162,7 @@ describe("cloudflarePlugin sync", () => {
     const noId = new Map<string, string>()
     const withId = new Map<string, string>()
     return Effect.gen(function* () {
-      yield* runCapability(testEngine(cfg, [], noId), Sync, "sync", (c) => c.sync())
+      yield* runCapability(testEngine(cfg, [], noId), Sync, "sync", (c) => c.sync)
       const placeholderConfig = JSON.parse(
         noId.get("/tmp/proj/wrangler.jsonc")!.replaceAll(/^\s*\/\/.*$/gm, ""),
       ) as { d1_databases: ReadonlyArray<{ database_id: string }> }
@@ -167,7 +174,7 @@ describe("cloudflarePlugin sync", () => {
         testEngine({ ...cfg, d1: { name: "test-auth", id: "real-db-id" } }, [], withId),
         Sync,
         "sync",
-        (c) => c.sync(),
+        (c) => c.sync,
       )
       const realIdConfig = JSON.parse(
         withId.get("/tmp/proj/wrangler.jsonc")!.replaceAll(/^\s*\/\/.*$/gm, ""),
@@ -182,7 +189,9 @@ describe("cloudflarePlugin dev", () => {
     const spawns: SpawnRecord[] = []
     const writes = new Map<string, string>()
     return Effect.gen(function* () {
-      yield* runCapability(testEngine(cfg, spawns, writes), Dev, "dev", (c) => c.dev({ port: 9000 }))
+      yield* runCapability(testEngine(cfg, spawns, writes), Dev, "dev", (c) =>
+        c.dev({ port: 9000 }),
+      )
 
       const devVars = writes.get("/tmp/proj/.dev.vars")!
       expect(devVars).toContain("AUTH_SECRET=baked-secret")
@@ -206,7 +215,7 @@ describe("cloudflarePlugin build and preview", () => {
     const spawns: SpawnRecord[] = []
     const writes = new Map<string, string>()
     return Effect.gen(function* () {
-      yield* runCapability(testEngine(cfg, spawns, writes), Build, "build", (c) => c.build())
+      yield* runCapability(testEngine(cfg, spawns, writes), Build, "build", (c) => c.build)
 
       expect(writes.has("/tmp/proj/wrangler.jsonc")).toBe(true)
       expect(spawns[0]!.args).toEqual(["x", "vite", "build"])
@@ -216,7 +225,7 @@ describe("cloudflarePlugin build and preview", () => {
   it.effect("preview spawns vite preview", () => {
     const spawns: SpawnRecord[] = []
     return Effect.gen(function* () {
-      yield* runCapability(testEngine(cfg, spawns), Preview, "preview", (c) => c.preview())
+      yield* runCapability(testEngine(cfg, spawns), Preview, "preview", (c) => c.preview)
 
       const spawn = spawns[0]!
       expect(spawn.command).toBe("bun")
@@ -254,5 +263,6 @@ describe("cloudflarePlugin seed", () => {
         (c) => c.seed({ url: "http://localhost:8788" }),
       ).pipe(Effect.flip)
       expect(failure.message).toContain("scripts/seed.sh")
-    }))
+    }),
+  )
 })

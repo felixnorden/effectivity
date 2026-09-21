@@ -4,15 +4,15 @@ export default defineConfig({
   categories: {
     correctness: "error",
     perf: "warn",
-    pedantic: "warn"
+    pedantic: "warn",
   },
   rules: {
-    "no-console": "warn"
+    "no-console": "warn",
   },
   ignorePatterns: [
     "**/node_modules/**",
     "**/dist/**",
     "**/coverage/**",
-    "**/worker-configuration.d.ts"
-  ]
+    "**/worker-configuration.d.ts",
+  ],
 })

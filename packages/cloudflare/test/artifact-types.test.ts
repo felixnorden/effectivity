@@ -6,11 +6,7 @@
  * that the shapes are importable from this package entry.
  */
 import { describe, expect, it } from "@effect/vitest"
-import type {
-  RuntimeSettings,
-  WranglerD1Binding,
-  WranglerR2Binding,
-} from "@effectivity/cloudflare"
+import type { RuntimeSettings, WranglerD1Binding, WranglerR2Binding } from "@effectivity/cloudflare"
 
 const settings = {
   catalog: { root: "cms" },

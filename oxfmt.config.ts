@@ -8,6 +8,6 @@ export default defineConfig({
     "**/node_modules/**",
     "**/dist/**",
     "**/coverage/**",
-    "**/worker-configuration.d.ts"
-  ]
+    "**/worker-configuration.d.ts",
+  ],
 })

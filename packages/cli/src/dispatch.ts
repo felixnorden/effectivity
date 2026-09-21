@@ -19,7 +19,9 @@ export const missingCapability = (
   registrations: ReadonlyArray<AnyPluginRegistration>,
 ): string =>
   `no registered plugin provides the "${capabilityName}" capability (registered plugins: ${
-    registrations.length === 0 ? "(none)" : registrations.map((registration) => registration.name).join(", ")
+    registrations.length === 0
+      ? "(none)"
+      : registrations.map((registration) => registration.name).join(", ")
   })`
 
 /** Prefix a capability failure with its registration's name, once, in one place. */
@@ -43,12 +45,12 @@ export const attributeFailure =
  * exactly as the design documents. No concurrency, no cancellation, no
  * reordering is added.
  */
-export const dispatch = Effect.fn("dispatch")(function* <Identifier, Shape, A>(
+export const dispatch = Effect.fn("dispatch")(function* <Identifier, Shape>(
   engine: Engine,
   tag: Context.Key<Identifier, Shape>,
   capabilityName: string,
-  run: (service: Shape) => Effect.Effect<A, PluginError>,
-): Effect.fn.Return<A, PluginError, Scope.Scope> {
+  run: (service: Shape) => Effect.Effect<void, PluginError>,
+): Effect.fn.Return<void, PluginError, Scope.Scope> {
   let provided = false
   for (const registration of engine.registrations) {
     const context = yield* Layer.build(registration.capabilities(engine.host))
@@ -62,5 +64,4 @@ export const dispatch = Effect.fn("dispatch")(function* <Identifier, Shape, A>(
       message: missingCapability(capabilityName, engine.registrations),
     })
   }
-  return undefined as A
 })

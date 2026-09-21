@@ -11,18 +11,18 @@
   "r2_buckets": [
     {
       "binding": "BUCKET",
-      "bucket_name": "effectivity-cms"
-    }
+      "bucket_name": "effectivity-cms",
+    },
   ],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "effectivity-auth",
-      "database_id": "00000000-0000-0000-0000-000000000000"
-    }
+      "database_id": "00000000-0000-0000-0000-000000000000",
+    },
   ],
   "observability": {
     "enabled": true,
-    "traces": { "enabled": true }
-  }
+    "traces": { "enabled": true },
+  },
 }
